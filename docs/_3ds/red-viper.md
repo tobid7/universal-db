@@ -10,13 +10,13 @@ description: A Virtual Boy emulator for the 3DS
 download_page: https://github.com/skyfloogle/red-viper/releases
 downloads:
   red-viper.3dsx:
-    size: 554736
-    size_str: 541 KiB
-    url: https://github.com/skyfloogle/red-viper/releases/download/v0.9.8/red-viper.3dsx
+    size: 665404
+    size_str: 649 KiB
+    url: https://github.com/skyfloogle/red-viper/releases/download/v1.2.0/red-viper.3dsx
   red-viper.cia:
-    size: 604608
-    size_str: 590 KiB
-    url: https://github.com/skyfloogle/red-viper/releases/download/v0.9.8/red-viper.cia
+    size: 693184
+    size_str: 676 KiB
+    url: https://github.com/skyfloogle/red-viper/releases/download/v1.2.0/red-viper.cia
 github: skyfloogle/red-viper
 icon: https://raw.githubusercontent.com/skyfloogle/red-viper/master/icon.png
 image: https://raw.githubusercontent.com/skyfloogle/red-viper/master/resources/banner.png
@@ -34,50 +34,57 @@ screenshots:
 - description: Warioland
   url: https://db.universal-team.net/assets/images/screenshots/red-viper/warioland.png
 source: https://github.com/skyfloogle/red-viper
-stars: 837
+stars: 955
 systems:
 - 3DS
 title: red-viper
 unique_ids:
 - '0xFE7CB'
-update_notes: '<p dir="auto">This patch includes a number of accuracy improvements,
-  primarily related to timing (plus a few game-specific hacks where hardware research
-  is insufficient). With these improvements in tow, Red Viper is currently the most
-  accurate emulator for Virtual Boy games on any system, even disregarding the whole
-  3D thing.</p>
+update_notes: '<p dir="auto">This release introduces local multiplayer!</p>
 
   <ul dir="auto">
 
-  <li>Improved timer emulation to fix sample playback in Galactic Pinball and Teleroboxer</li>
-
-  <li>Added memory access time emulation, which fixes numerous games
+  <li>Added local multiplayer
 
   <ul dir="auto">
 
-  <li>Fixes sample playback in Virtual Bowling and Niko-Chan Battle, along with improved
-  timer emulation</li>
+  <li>Accessible from the main menu</li>
 
-  <li>Improves emulation performance in 3D Tetris</li>
+  <li>Two nearby 3DS systems can play Virtual Boy games together</li>
 
-  <li>Correctly emulated game speed in Golf</li>
+  <li>Games can be loaded from the SD card, or downloaded from the host system</li>
 
-  <li>Fixes Blox 2 intro cutting off early</li>
+  <li>Forwarders can only play the game they were configured with</li>
+
+  <li>Save data is saved and loaded per system</li>
+
+  <li>The input buffer can be manually adjusted: higher values may be more stable
+  in noisy environments, but incur longer delays</li>
+
+  <li>Because both Virtual Boy simulations are ran on both 3DS systems, games may
+  slow down sometimes if either player is using an old 3DS. The following games are
+  confirmed to play well on old 3DS:
+
+  <ul dir="auto">
+
+  <li>Mario''s Tennis multiplayer patch</li>
+
+  <li>Hyper Fighting</li>
 
   </ul>
 
   </li>
 
-  <li>Fixed graphical glitches and fixed intro chime in Waterworld</li>
+  </ul>
 
-  <li>Improved audio emulation to fix some homebrew, including the Blox games and
-  the Formula V demo</li>
+  </li>
 
-  <li>Allow loading savestates from older versions</li>
+  <li>Improved loading savestates from old versions</li>
 
   </ul>'
-updated: '2025-03-09T20:11:42Z'
-version: v0.9.8
-version_title: v0.9.8
+updated: '2025-11-08T15:09:52Z'
+version: v1.2.0
+version_title: v1.2.0
 wiki: https://github.com/skyfloogle/red-viper/wiki
 ---
 A Virtual Boy emulator for the 3DS. All official games are playable at full speed.

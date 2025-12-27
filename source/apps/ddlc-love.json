@@ -9,15 +9,42 @@
 	"unique_ids": [
 		56828
 	],
-	"version": "v1.1.8-1",
+	"version": "v1.1.9",
 	"downloads": {
-		"DDLC-LOVE-3DS.3dsx": {
-			"url": "https://github.com/LukeZGD/DDLC-LOVE/releases/download/v1.1.8-1/DDLC-LOVE-43cecfd.3dsx",
+		"DDLC-3DS.zip": {
+			"url": "https://github.com/LukeZGD/DDLC-LOVE/releases/download/v1.1.9/DDLC-3DS.zip",
 			"size": 82643060
 		},
-		"DDLC-LOVE-3DS.cia": {
-			"url": "https://github.com/LukeZGD/DDLC-LOVE/releases/download/v1.1.8-1/DDLC-LOVE-43cecfd.cia",
+		"DDLC-3DS.cia": {
+			"url": "https://github.com/LukeZGD/DDLC-LOVE/releases/download/v1.1.9/DDLC-3DS.cia",
 			"size": 83203008
 		}
+	},
+	"autogen_scripts": true,
+	"installed_files": ["%3DSX%/DDLC-3DS.3dsx"],
+	"scripts": {
+		"DDLC-3DS.3dsx": [
+			{
+				"type": "downloadFile",
+				"file": "https://github.com/LukeZGD/DDLC-LOVE/releases/download/v1.1.9/DDLC-3DS.zip",
+				"output": "/DDLC-3DS.zip"
+			},
+			{
+				"type": "extractFile",
+				"file": "/DDLC-3DS.zip",
+				"input": "^DDLC-3DS.3dsx",
+				"output": "%3DSX%/DDLC-3DS.3dsx"
+			},
+			{
+				"type": "extractFile",
+				"file": "/DDLC-3DS.zip",
+				"input": "^game",
+				"output": "/3ds/DDLC-3DS/game"
+			},
+			{
+				"type": "deleteFile",
+				"file": "/DDLC-3DS.zip"
+			}
+		]
 	}
 }

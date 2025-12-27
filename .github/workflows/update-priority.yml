@@ -15,7 +15,7 @@ jobs:
     container: universalteam/db
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v6
 
     - name: Delete old pages
       run: rm -rf docs/_3ds/* docs/_ds/*
@@ -26,7 +26,18 @@ jobs:
         WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
       run: |
         export PATH=$PATH:/opt/devkitpro/tools/bin
-        python3 source/generate.py source/apps docs --priority
+
+        # Check for background images
+        BG_DIR=source/bg
+        COUNT=$(ls $BG_DIR | wc -l)
+        if [ $COUNT -ne 0 ]; then
+          SELECTED=$(( $(date +%j) / 3 % $COUNT + 1 ))
+          BG="$BG_DIR/$(ls $BG_DIR | head -n$SELECTED | tail -n1)"
+
+          python3 source/generate.py all --priority --background "$BG"
+        else
+          python3 source/generate.py all --priority
+        fi
 
       # Pull origin in case a commit has been done while updating
     - name: Pull origin

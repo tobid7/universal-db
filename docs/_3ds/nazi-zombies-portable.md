@@ -12,8 +12,8 @@ download_filter: 3ds
 download_page: https://github.com/nzp-team/nzportable/releases
 downloads:
   nzportable-3ds.zip:
-    size: 34962069
-    size_str: 33 MiB
+    size: 72744317
+    size_str: 69 MiB
     url: https://github.com/nzp-team/nzportable/releases/download/nightly/nzportable-3ds.zip
 github: nzp-team/nzportable
 icon: https://raw.githubusercontent.com/nzp-team/vril-engine/main/source/platform/ctr/art/icon.png
@@ -34,7 +34,7 @@ screenshots:
 - description: Map selection
   url: https://db.universal-team.net/assets/images/screenshots/nazi-zombies-portable/map-selection.png
 source: https://github.com/nzp-team/nzportable
-stars: 564
+stars: 631
 systems:
 - 3DS
 title: 'Nazi Zombies: Portable'
@@ -47,6 +47,8 @@ update_notes: '<p dir="auto">This is a nightly generated automagically. Nightlie
 
   <ul dir="auto">
 
+  <li>Game Assets</li>
+
   <li>QuakeC (Game Code)</li>
 
   </ul>
@@ -56,7 +58,8 @@ update_notes: '<p dir="auto">This is a nightly generated automagically. Nightlie
   <ul dir="auto">
 
   <li>PC: Extract .ZIP archive into a folder of your choice. Linux users may need
-  to mark as executable with <code class="notranslate">chmod</code></li>
+  to mark as executable with <code class="notranslate">chmod</code>. Linux users may
+  also choose to use the Flatpak.</li>
 
   <li>PSP: Extract the  folder inside the .ZIP archive into <code class="notranslate">PSP/GAME/</code>.</li>
 
@@ -66,15 +69,18 @@ update_notes: '<p dir="auto">This is a nightly generated automagically. Nightlie
 
   <li>PS VITA: Extract the .ZIP archive into ux0: and install <code class="notranslate">nzp.vpk</code>.</li>
 
-  <li>Nintendo 3DS: Extract the .ZIP archive into <code class="notranslate">/3ds/</code></li>
+  <li>Nintendo 3DS: Extract the .ZIP archive into <code class="notranslate">/3ds/</code>.</li>
+
+  <li>TI NSPIRE: Extract the .ZIP archive and sync contents to <code class="notranslate">My
+  Documents</code>.</li>
 
   </ul>
 
   <p dir="auto">You can also play the WebGL version at <a href="https://nzp.gay/"
   rel="nofollow">https://nzp.gay/</a></p>'
-updated: '2025-05-29T07:27:58Z'
+updated: '2025-12-26T07:29:50Z'
 version: nightly
-version_title: 2.0.0-indev+20250529072643
+version_title: 2.0.0-indev+20251226072825
 website: https://github.com/nzp-team/nzportable
 ---
 A Quake-based "demake" of the 'Nazi Zombies' mode from Call of Duty: World at War.

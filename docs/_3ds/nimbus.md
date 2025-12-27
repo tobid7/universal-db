@@ -8,18 +8,18 @@ color_bg: '#2b2952'
 created: '2022-01-08T01:36:02Z'
 download_page: https://github.com/PretendoNetwork/nimbus/releases
 downloads:
-  3dsx.1.6.1.zip:
-    size: 407820
-    size_str: 398 KiB
-    url: https://github.com/PretendoNetwork/nimbus/releases/download/v1.6.1/3dsx.1.6.1.zip
-  cia.1.6.1.zip:
-    size: 642456
-    size_str: 627 KiB
-    url: https://github.com/PretendoNetwork/nimbus/releases/download/v1.6.1/cia.1.6.1.zip
-  combined.1.6.1.zip:
-    size: 1043340
-    size_str: 1018 KiB
-    url: https://github.com/PretendoNetwork/nimbus/releases/download/v1.6.1/combined.1.6.1.zip
+  3dsx.2.0.2.zip:
+    size: 725428
+    size_str: 708 KiB
+    url: https://github.com/PretendoNetwork/nimbus/releases/download/v2.0.2/3dsx.2.0.2.zip
+  cia.2.0.2.zip:
+    size: 959075
+    size_str: 936 KiB
+    url: https://github.com/PretendoNetwork/nimbus/releases/download/v2.0.2/cia.2.0.2.zip
+  combined.2.0.2.zip:
+    size: 1378105
+    size_str: 1 MiB
+    url: https://github.com/PretendoNetwork/nimbus/releases/download/v2.0.2/combined.2.0.2.zip
 github: PretendoNetwork/nimbus
 icon: https://db.universal-team.net/assets/images/icons/nimbus.png
 image: https://db.universal-team.net/assets/images/images/nimbus.png
@@ -33,7 +33,7 @@ screenshots:
 - description: Pretendo
   url: https://db.universal-team.net/assets/images/screenshots/nimbus/pretendo.png
 source: https://github.com/PretendoNetwork/nimbus
-stars: 160
+stars: 201
 systems:
 - 3DS
 title: Nimbus
@@ -43,17 +43,17 @@ update_notes: '<h2 dir="auto">What''s Changed</h2>
 
   <ul dir="auto">
 
-  <li>fix(patches/http): Close frd:u handle upon successful request by <a class="user-mention
-  notranslate" data-hovercard-type="user" data-hovercard-url="/users/DaniElectra/hovercard"
-  data-octo-click="hovercard-link-click" data-octo-dimensions="link_type:self" href="https://github.com/DaniElectra">@DaniElectra</a>
-  in <a class="issue-link js-issue-link" data-error-text="Failed to load title" data-id="2308566628"
-  data-permission-text="Title is private" data-url="https://github.com/PretendoNetwork/nimbus/issues/43"
-  data-hovercard-type="pull_request" data-hovercard-url="/PretendoNetwork/nimbus/pull/43/hovercard"
-  href="https://github.com/PretendoNetwork/nimbus/pull/43">#43</a>
+  <li>chore: Bump version to 2.0.2 by <a class="user-mention notranslate" data-hovercard-type="user"
+  data-hovercard-url="/users/DaniElectra/hovercard" data-octo-click="hovercard-link-click"
+  data-octo-dimensions="link_type:self" href="https://github.com/DaniElectra">@DaniElectra</a>
+  in <a class="issue-link js-issue-link" data-error-text="Failed to load title" data-id="3747422884"
+  data-permission-text="Title is private" data-url="https://github.com/PretendoNetwork/nimbus/issues/75"
+  data-hovercard-type="pull_request" data-hovercard-url="/PretendoNetwork/nimbus/pull/75/hovercard"
+  href="https://github.com/PretendoNetwork/nimbus/pull/75">#75</a>
 
   <ul dir="auto">
 
-  <li>Fixes shutdown time being longer than usual</li>
+  <li>2.0.1 didn''t have a version increase, so release new version with the increase.</li>
 
   </ul>
 
@@ -61,10 +61,10 @@ update_notes: '<h2 dir="auto">What''s Changed</h2>
 
   </ul>
 
-  <p dir="auto"><strong>Full Changelog</strong>: <a class="commit-link" href="https://github.com/PretendoNetwork/nimbus/compare/v1.6.0...v1.6.1"><tt>v1.6.0...v1.6.1</tt></a></p>'
-updated: '2024-07-02T20:57:06Z'
-version: v1.6.1
-version_title: v1.6.1
+  <p dir="auto"><strong>Full Changelog</strong>: <a class="commit-link" href="https://github.com/PretendoNetwork/nimbus/compare/v2.0.1...v2.0.2"><tt>v2.0.1...v2.0.2</tt></a></p>'
+updated: '2025-12-19T12:56:28Z'
+version: v2.0.2
+version_title: v2.0.2
 ---
 #### Usage
 - Run the Nimbus homebrew and choose to use either a Pretendo or Nintendo account

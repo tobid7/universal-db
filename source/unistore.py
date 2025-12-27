@@ -1,7 +1,12 @@
+from __future__ import annotations
+
 import json
 import re
+from typing import Optional
 
-from os import path
+import pathlib
+
+ICONS_PER_SHEET = 400
 
 
 class StoreEntry:
@@ -36,6 +41,14 @@ class StoreEntry:
 		(optional) The entry's icon's index in the spritesheet
 	color
 		(optional) Accent color for the entry (in the format `#RRGGBB`)
+	stars
+		(optional) Stars for the entry
+	preinstallMessage
+		(optional) Pre-install message for the entry
+	titleIds
+		(optional) Title ID(s) of the app
+	installedFiles
+		(optional) The files that indicate the app is installed
 	"""
 
 	@staticmethod
@@ -44,7 +57,7 @@ class StoreEntry:
 
 		return "".join([c for c in string if ord(c) < 0xFFFF]).strip()
 
-	def __init__(self, title: str, author: str, description: str, version: str, lastUpdated: str = "", categories: list = [], consoles: list = [], screenshots: list = [], releaseNotes: str = "", license: str = "", wiki: str = "", iconIndex: int = -1, color: str = ""):
+	def __init__(self, title: str, author: str, description: str, version: str, lastUpdated: str = "", categories: list = [], consoles: list = [], screenshots: list = [], releaseNotes: str = "", license: str = "", wiki: str = "", iconIndex: int = -1, color: str = "", stars: int = 0, preinstallMessage: str = "", titleIds: list = [], installedFiles: list = []):
 		self._entry = {
 			"info": {
 				"title": self._bmpOnly(title),
@@ -58,18 +71,27 @@ class StoreEntry:
 				"releasenotes": self._bmpOnly(releaseNotes),
 				"license": self._bmpOnly(license),
 				"wiki": wiki,
-				"icon_index": iconIndex,
+				"icon_index": iconIndex if iconIndex < 0 else iconIndex % ICONS_PER_SHEET,
+				"sheet_index": iconIndex // ICONS_PER_SHEET,
+				"stars": stars,
+				"preinstall_message": self._bmpOnly(preinstallMessage),
+				"title_ids": titleIds,
+				"installed_files": installedFiles.copy()
 			}
 		}
 		if color:
 			self._entry["info"]["color"] = color
+
+	def addInstalledFile(self, file):
+		if file not in self._entry["info"]["installed_files"]:
+			self._entry["info"]["installed_files"].append(file)
 
 	def addScript(self, scriptName: str, script: list):
 		"""Adds the given script"""
 
 		self._entry[scriptName] = script
 
-	def addDownloadScript(self, scriptName: str, file: str, url: str, message: str = None, archive: tuple = None, size: str = None, releaseType: str = None, retroarch: bool = False) -> None:
+	def addDownloadScript(self, scriptName: str, file: str, url: str, archive: tuple = None, size: str = None, releaseType: str = None, retroarch: bool = False) -> None:
 		"""Generates a script to download the given file"""
 
 		if releaseType not in (None, "nightly", "prerelease"):
@@ -86,24 +108,28 @@ class StoreEntry:
 
 			for item in archive:
 				if item[item.rfind(".") + 1:].lower() == "3dsx":
+					output = f"%3DSX%/{item[item.rfind('/') + 1:]}"
 					script.append({
 						"type": "extractFile",
 						"file": f"/{file}",
-						"input": f"{item}",
-						"output": f"%3DSX%/{item[item.rfind('/') + 1:]}"
+						"input": f"^{item}",
+						"output": output
 					})
+					self.addInstalledFile(output)
 				elif item[item.rfind(".") + 1:].lower() in ["nds", "dsi"]:
+					output = f"%NDS%/{item[item.rfind('/') + 1:]}"
 					script.append({
 						"type": "extractFile",
 						"file": f"/{file}",
-						"input": f"{item}",
-						"output": f"%NDS%/{item[item.rfind('/') + 1:]}"
+						"input": f"^{item}",
+						"output": output
 					})
+					self.addInstalledFile(output)
 				elif item[item.rfind(".") + 1:].lower() == "cia":
 					script.append({
 						"type": "extractFile",
 						"file": f"/{file}",
-						"input": f"{item}",
+						"input": f"^{item}",
 						"output": f"/{item[item.rfind('/') + 1:]}"
 					})
 
@@ -124,24 +150,28 @@ class StoreEntry:
 							"file": f"/{item[item.rfind('/') + 1:]}"
 						})
 				elif item.endswith("boot.firm"):
+					output = f"/{item[item.rfind('/') + 1:]}"
 					script.append({
 						"type": "extractFile",
 						"file": f"/{file}",
-						"input": f"{item}",
-						"output": f"/{item[item.rfind('/') + 1:]}"
+						"input": f"^{item}",
+						"output": output
 					})
+					self.addInstalledFile(output)
 				elif item[item.rfind(".") + 1:].lower() == "firm":
+					output = f"%FIRM%/{item[item.rfind('/') + 1:]}"
 					script.append({
 						"type": "extractFile",
 						"file": f"/{file}",
-						"input": f"{item}",
-						"output": f"%FIRM%/{item[item.rfind('/') + 1:]}"
+						"input": f"^{item}",
+						"output": output
 					})
+					self.addInstalledFile(output)
 				else:
 					script.append({
 						"type": "extractFile",
 						"file": f"/{file}",
-						"input": f"{item}",
+						"input": f"^{item}",
 						"output": f"/{item}"
 					})
 
@@ -151,21 +181,25 @@ class StoreEntry:
 			})
 		else:
 			if file[file.rfind(".") + 1:].lower() == "3dsx":
+				output = f"%3DSX%/{file}"
 				script = [
 					{
 						"type": "downloadFile",
 						"file": url,
-						"output": f"%3DSX%/{file}"
+						"output": output
 					}
 				]
+				self.addInstalledFile(output)
 			elif file[file.rfind(".") + 1:].lower() in ["nds", "dsi"]:
+				output = f"%NDS%/{file}"
 				script = [
 					{
 						"type": "downloadFile",
 						"file": url,
-						"output": f"%NDS%/{file}"
+						"output": output
 					}
 				]
+				self.addInstalledFile(output)
 			elif file[file.rfind(".") + 1:].lower() == "cia":
 				script = [
 					{
@@ -183,21 +217,25 @@ class StoreEntry:
 					}
 				]
 			elif file == "boot.firm":
+				output = f"/{file}"
 				script = [
 					{
 						"type": "downloadFile",
 						"file": url,
-						"output": f"/{file}"
+						"output": output
 					}
 				]
+				self.addInstalledFile(output)
 			elif file[file.rfind(".") + 1:].lower() == "firm":
+				output = f"%FIRM%/{file}"
 				script = [
 					{
 						"type": "downloadFile",
 						"file": url,
-						"output": f"%FIRM%/{file}"
+						"output": output
 					}
 				]
+				self.addInstalledFile(output)
 			elif file[file.rfind(".") + 1:].lower() in ["zip", "7z", "rar"]:
 				script = [
 					{
@@ -224,23 +262,6 @@ class StoreEntry:
 						"output": f"/{file}"
 					}
 				]
-
-		if message:
-			if type(message) == str:
-				script.append({
-					"type": "promptMessage",
-					"message": message
-				})
-			elif type(message) == dict and len(re.findall(message["for"], file)) > 0:
-				msg = {
-					"type": "promptMessage",
-					"message": message["message"],
-					"count": message["count"] if "count" in message else 0
-				}
-				if message["at"] == "end":
-					script.append(msg)
-				else:
-					script.insert(0, msg)
 
 		if releaseType:
 			script = {
@@ -282,30 +303,25 @@ class UniStore:
 		(optional) URL to download the DS spritesheet from
 	infoURL
 		(optional) URL to storeInfo-only UniStore for quicker update checking
-	file
-		(optional) Filename to store as, defaults to based on url
-	sheet
-		(optional) Filename to store 3DS spritesheet as, defaults to based on sheetURL
-	dsSheet
-		(optional) Filename ot store DS spritesheet as, defaults to based on dsSheetURL
-	revision
-		(optional) The previous revision of the UniStore, defaults to 0, incremented on save
-
+	bgImage
+		(optional) If there is a background image
 	"""
 
-	def __init__(self, title: str, author: str, description: str, url: str, sheetURL: str = "", dsSheetURL: str = "", infoURL: str = "", file: str = None, sheet: str = None, dsSheet: str = None) -> None:
+	def __init__(self, title: str, author: str, description: str, url: str, sheetURLs: list[str] = "", dsSheetURL: str = "", infoURL: str = "", bgImage: bool = False) -> None:
 		self._unistore = {
 			"storeInfo": {
 				"title": title,
 				"author": author,
 				"description": description,
 				"url": url,
-				"file": file if file else url[url.rfind("/") + 1:],
-				"sheetURL": sheetURL,
-				"sheet": sheet if sheet else sheetURL[sheetURL.rfind("/") + 1:],
+				"file": url[url.rfind("/") + 1:],
+				"sheetURL": sheetURLs,
+				"sheet": [url[url.rfind("/") + 1:] for url in sheetURLs],
 				"dsSheetURL": dsSheetURL,
-				"dsSheet": dsSheet if dsSheet else dsSheetURL[dsSheetURL.rfind("/") + 1:],
+				"dsSheet": dsSheetURL[dsSheetURL.rfind("/") + 1:],
 				"infoURL": infoURL,
+				"bg_index": 0 if bgImage else -1,
+				"bg_sheet": 0 if bgImage else -1,
 				"version": 3,
 				"revision": 0
 			},
@@ -317,14 +333,13 @@ class UniStore:
 
 		self._unistore["storeContent"].append(entry._entry)
 
-	def save(self, outputPath: str, infoPath: str = None) -> None:
+	def save(self, output: pathlib.Path, infoPath: Optional[pathlib.Path] = None) -> None:
 		"""Increments the revision and saves to a file if changed"""
-
 		write = True
 
 		# If the file already exists, read it and increment the revision if changed
-		if path.exists(outputPath):
-			with open(outputPath, encoding="utf8") as oldFile:
+		if output.exists():
+			with output.open(encoding="utf8") as oldFile:
 				oldData = json.load(oldFile)
 				if "storeInfo" in oldData and "revision" in oldData["storeInfo"]:
 					self._unistore["storeInfo"]["revision"] = oldData["storeInfo"]["revision"]
@@ -335,9 +350,9 @@ class UniStore:
 					write = True
 
 		if write:
-			with open(outputPath, "w", encoding="utf8") as outputFile:
+			with output.open("w", encoding="utf8") as outputFile:
 				json.dump(self._unistore, outputFile, sort_keys=True, ensure_ascii=False)
 
 			if infoPath:
-				with open(infoPath, "w", encoding="utf8") as infoFile:
+				with infoPath.open("w", encoding="utf8") as infoFile:
 					json.dump(self._unistore["storeInfo"], infoFile, sort_keys=True, ensure_ascii=False)

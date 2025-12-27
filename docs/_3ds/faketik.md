@@ -20,11 +20,14 @@ layout: app
 license: mit
 license_name: MIT License
 source: https://github.com/ihaveamac/faketik
-stars: 101
+stars: 108
 systems:
 - 3DS
 title: faketik
-update_notes: '<ul dir="auto">
+update_notes: '<h1 dir="auto"><a href="https://github.com/ihaveamac/faketik/releases/download/v1.1.2/faketik.3dsx">Click
+  here to download faketik.3dsx</a></h1>
+
+  <ul dir="auto">
 
   <li>Fix reliability with getting SD title list
 

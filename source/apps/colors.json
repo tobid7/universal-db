@@ -20,6 +20,7 @@
 	"systems": [
 		"DS"
 	],
+	"installed_files": ["%NDS%/Colors.nds"],
 	"scripts": {
 		"[v1.1] Colors.nds": [
 			{
@@ -36,6 +37,7 @@
 			{
 				"type": "promptMessage",
 				"message": "Extract ColorsMagazine_1.col?",
+				"name": "magazine",
 				"count": 1
 			},
 			{

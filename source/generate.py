@@ -1,70 +1,50 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-from typing import Dict, Any, List, Tuple
-
+import functools
 import json
-import os
-import numpy
-import qrcode
+import pathlib
 import re
-import requests
-import yaml
-import contextlib
-import discord
-import traceback
-
-from argparse import ArgumentParser, FileType
-from bs4 import BeautifulSoup
 from colorsys import hsv_to_rgb, rgb_to_hsv
-from datetime import datetime, timezone
-from dateutil import parser
-from img2tdx import img2tdx
 from io import BytesIO
-from markdownify import markdownify
-from os import listdir, makedirs, path, system
-from PIL import Image, ImageDraw
-from PIL.PngImagePlugin import PngImageFile
-from requests.utils import requote_uri
+from os import system
 from shutil import copyfile
 from textwrap import shorten
-from typing import Tuple
-from unidecode import unidecode
-from unistore import StoreEntry, UniStore
+from typing import Any, Dict, List, Optional, TextIO, Tuple
 
-DOWNLOAD_BLACKLIST = r"(\.3ds$|\.apk|\.appimage|\.dmg|\.exe|\.ipa|\.love|\.nro|\.opk|\.pkg|\.smdh|\.vpk|\.xz|armhf|elf|linux|macos|osx|PS3|PSP|switch|ubuntu|vita|wii|win|x86_64|xbox)"
-DOCS_DIR = None
+import click
+import discord
+import numpy
+import qrcode
+import requests
+import yaml
+from bs4 import BeautifulSoup
+from dateutil import parser
+from markdownify import markdownify
+from PIL import Image, ImageDraw, ImageFile
+from PIL.PngImagePlugin import PngImageFile
+from requests.utils import requote_uri
 
+from img2tdx import img2tdx
+from unistore import StoreEntry, UniStore, ICONS_PER_SHEET
+from utils import (format_to_web_name, format_traceback, get_matching_app,
+                   to_friendly_bytes, was_recently_updated)
 
-def webName(name: str) -> str:
-	"""Convert names to lowercase alphanumeric, underscore, and hyphen"""
-
-	name = unidecode(name).lower()
-	out = ""
-	for letter in name:
-		if letter in "abcdefghijklmnopqrstuvwxyz0123456789-_":
-			out += letter
-		elif letter in ". ":
-			out += "-"
-	return out
-
-
-def byteCount(bytes: int) -> str:
-	"""Converts an int number of bytes to a str with the largest appropriate unit"""
-
-	if bytes == 1:
-		return "1 Byte"
-	elif bytes < (1 << 10):
-		return f"{bytes} Bytes"
-	elif bytes < (1 << 20):
-		return f"{bytes // (1 << 10)} KiB"
-	elif bytes < (1 << 30):
-		return f"{bytes // (1 << 20)} MiB"
-	else:
-		return f"{bytes // (1 << 30)} GiB"
+DOWNLOAD_BLACKLIST = r"(\.3ds$|\.apk|\.appimage|\.flatpak|\.dmg|\.dol|\.exe|\.ipa|\.love|\.nro|\.opk|\.pkg|\.smdh|\.vpk|\.xz|armhf|elf|linux|macos|osx|PS3|PSP|switch|ubuntu|vita|wii|win|x86_64|xbox)"
+DOCS_DIR: Optional[pathlib.Path] = None
+PRIORITY_MODE = True
+SCRIPT_DIR = pathlib.Path(__file__).parent.resolve()
+TEMP_DIR = SCRIPT_DIR / "temp"
+BG_IMAGE = None
 
 
-def saveIcon(img: Image, tempDir: str, index: int, ds: bool) -> Tuple[PngImageFile, str]:
+def saveIcon(img: Image.Image, index: int, ds: bool,
+			 *, location: Optional[str] = None) -> Tuple[Image.Image, str]:
+	location = location or str(TEMP_DIR)
+	loc_path = pathlib.Path(location)
+	if not loc_path.exists():
+		loc_path.mkdir(parents=True)
+
 	if img.mode == "P":
 		pal = img.palette.palette
 		img = img.convert("RGBA")
@@ -77,7 +57,11 @@ def saveIcon(img: Image, tempDir: str, index: int, ds: bool) -> Tuple[PngImageFi
 		img = img.convert("RGBA")
 
 	img.thumbnail((48, 48))
-	img.save(path.join(tempDir, "48", f"{index}.png"))
+	forty_eight = loc_path / "48"
+	if not forty_eight.exists():
+		forty_eight.mkdir(parents=True, exist_ok=True)
+
+	img.save((forty_eight / f"{index}.png"))
 
 	if ds:
 		imgDS = img.copy()
@@ -88,7 +72,10 @@ def saveIcon(img: Image, tempDir: str, index: int, ds: bool) -> Tuple[PngImageFi
 		data[...][transparent.T] = (0xFF, 0, 0xFF, 0xFF)
 		imgDS = Image.fromarray(data)
 		imgDS = imgDS.quantize()
-		imgDS.save(path.join(tempDir, "32", f"{index}.png"))
+		thirty_two = loc_path / "32"
+		if not thirty_two.exists():
+			thirty_two.mkdir(parents=True, exist_ok=True)
+		imgDS.save((thirty_two / f"{index}.png"))
 
 	color = img.copy()
 	color.thumbnail((1, 1))
@@ -96,28 +83,17 @@ def saveIcon(img: Image, tempDir: str, index: int, ds: bool) -> Tuple[PngImageFi
 	return img, f"#{color[0]:02x}{color[1]:02x}{color[2]:02x}"
 
 
-def create_traceback(exc):
-	etype = type(exc)
-	trace = exc.__traceback__
-
-	return ''.join(traceback.format_exception(etype, exc, trace))
-
-
-
-def retroarchUniStore(tempDir: str) -> None:
+def retroarchUniStore() -> None:
 	"""Generates the RetroArch Cores UniStore"""
 
 	print("Generating RetroArch UniStore")
-
-	if not path.exists(path.join(tempDir, "ra", "48")):
-		makedirs(path.join(tempDir, "ra", "48"))
 
 	unistoreRA = UniStore(
 		"RetroArch Cores",
 		"Libretro",
 		"RetroArch cores",
 		"https://db.universal-team.net/unistore/retroarch.unistore",
-		"https://db.universal-team.net/unistore/retroarch.t3x"
+		["https://db.universal-team.net/unistore/retroarch.t3x"]
 	)
 
 	iconIndexRA = -1
@@ -140,7 +116,7 @@ def retroarchUniStore(tempDir: str) -> None:
 		img = requests.get(f"https://raw.githubusercontent.com/libretro/RetroArch/master/pkg/ctr/assets/{name[:-9]}.png")
 		if img.status_code == 200:
 			iconIndexRA += 1
-			saveIcon(Image.open(BytesIO(img.content)), path.join(tempDir, "ra"), iconIndexRA, False)
+			saveIcon(Image.open(BytesIO(img.content)), iconIndexRA, False, location=str(TEMP_DIR.joinpath("ra")))
 
 		notes = ""
 		if "description" in info and len(info["description"]) > 200:
@@ -154,7 +130,7 @@ def retroarchUniStore(tempDir: str) -> None:
 			shorten(info["description"], 200, placeholder="...") if "description" in info else "",
 			info["display_version"] if "display_version" in info else "nightly",
 			categories=info["categories"].split("|") if "categories" in info else ["emulator"],
-			consoles=["3ds"],
+			consoles=["3DS"],
 			releaseNotes=notes,
 			license=info["license"] if "license" in info else "",
 			iconIndex=iconIndexRA if img.status_code == 200 else -1
@@ -166,13 +142,13 @@ def retroarchUniStore(tempDir: str) -> None:
 		unistoreRA.append(entry)
 
 	# Make t3x
-	with open(path.join(tempDir, "ra", "48", "icons.t3s"), "w", encoding="utf8") as file:
+	with TEMP_DIR.joinpath("ra", "48", "icons.t3s").open("w", encoding="utf8") as file:
 		file.write("--atlas -f rgba -z auto\n\n")
 		for i in range(iconIndexRA):
 			file.write(f"{i}.png\n")
-	system(f"tex3ds -i {path.join(tempDir, 'ra', '48', 'icons.t3s')} -o {path.join(DOCS_DIR, 'unistore', 'retroarch.t3x')}")
+	system(f"tex3ds -i {TEMP_DIR.joinpath('ra', '48', 'icons.t3s')} -o {DOCS_DIR.joinpath('unistore', 'retroarch.t3x')}")
 
-	unistoreRA.save(path.join(DOCS_DIR, "unistore", "retroarch.unistore"))
+	unistoreRA.save(DOCS_DIR.joinpath("unistore", "retroarch.unistore"))
 
 
 def handle_gbatemp_app(r, app: Dict[str, Any]):
@@ -240,14 +216,14 @@ def handle_gbatemp_app(r, app: Dict[str, Any]):
 
 					if "Content-Length" in head.headers:
 						app["downloads"][name]["size"] = int(head.headers["Content-Length"])
-						app["downloads"][name]["size_str"] = byteCount(app["downloads"][name]["size"])
+						app["downloads"][name]["size_str"] = to_friendly_bytes(app["downloads"][name]["size"])
 	return app
 
 
-def handle_github_app(request: requests.Session, app: Dict[str, Any], names_cache):
-	api = request.get(f"https://api.github.com/repos/{app['github']}").json()
+def handle_github_app(github: GitHubAPI, app: Dict[str, Any]):
+	api = github.session.get(f"https://api.github.com/repos/{app['github']}").json()
 	assert "message" not in api, app["github"] + " API Error: " + api["message"]
-	releases = request.get(f"https://api.github.com/repos/{app['github']}/releases").json()
+	releases = github.session.get(f"https://api.github.com/repos/{app['github']}/releases").json()
 	assert "message" not in releases, app["github"] + " API Error: " + releases["message"]
 	release = None
 	prerelease = None
@@ -267,7 +243,7 @@ def handle_github_app(request: requests.Session, app: Dict[str, Any], names_cach
 
 	# If no actual release found on page 1, try /latest
 	if not release:
-		release = request.get(f"https://api.github.com/repos/{app['github']}/releases/latest").json()
+		release = github.session.get(f"https://api.github.com/repos/{app['github']}/releases/latest").json()
 		if "message" in release and release["message"] == "Not Found":
 			release = None
 
@@ -275,14 +251,7 @@ def handle_github_app(request: requests.Session, app: Dict[str, Any], names_cach
 		app["title"] = api["name"]
 
 	if "author" not in app:
-		username = api["owner"]["login"]
-		if username in names_cache:
-			username = names_cache[username]
-		else:
-			user = request.get(f"https://api.github.com/users/{username}").json()
-			assert "message" not in user, app["github"] + " API Error: " + user["message"]
-			names_cache[username] = user["name"] if user["name"] is not None else username
-			username = names_cache[username]
+		username = github.get_username(api['owner']['login'])
 		app["author"] = username
 
 	if "description" not in app and api["description"] != "" and api["description"] is not None:
@@ -328,7 +297,7 @@ def handle_github_app(request: requests.Session, app: Dict[str, Any], names_cach
 
 		if "update_notes" not in app and release["body"] != "" and release["body"] is not None:
 			app["update_notes_md"] = release["body"].replace("\r\n", "\n")
-			app["update_notes"] = request.post("https://api.github.com/markdown", json={"text": release["body"], "mode": "gfm" if "github" in app else "markdown", "context": app["github"] if "github" in app else None}).text
+			app["update_notes"] = github.format_markdown(release["body"], mode="gfm", context=app["github"])
 			app["update_notes"] = re.sub(r'<a target="_blank" rel="noopener noreferrer" href="https:\/\/private-user-images.githubusercontent\.com.*?<\/a>', "", app["update_notes"])
 
 		if "updated" not in app:
@@ -341,7 +310,7 @@ def handle_github_app(request: requests.Session, app: Dict[str, Any], names_cach
 				app["downloads"][asset["name"]] = {
 					"url": asset["browser_download_url"],
 					"size": asset["size"],
-					"size_str": byteCount(asset["size"])
+					"size_str": to_friendly_bytes(asset["size"])
 				}
 
 	if prerelease:
@@ -355,7 +324,7 @@ def handle_github_app(request: requests.Session, app: Dict[str, Any], names_cach
 				app["prerelease"]["downloads"][asset["name"]] = {
 					"url": asset["browser_download_url"],
 					"size": asset["size"],
-					"size_str": byteCount(asset["size"])
+					"size_str": to_friendly_bytes(asset["size"])
 				}
 
 		if len(app["prerelease"]["downloads"]) > 0:
@@ -376,7 +345,8 @@ def handle_github_app(request: requests.Session, app: Dict[str, Any], names_cach
 
 			if "update_notes" not in app["prerelease"] and prerelease["body"] != "" and prerelease["body"] is not None:
 				app["prerelease"]["update_notes_md"] = prerelease["body"].replace("\r\n", "\n")
-				app["prerelease"]["update_notes"] = request.post("https://api.github.com/markdown", json={"text": prerelease["body"], "mode": "gfm" if "github" in app else "markdown", "context": app["github"] if "github" in app else None}).text
+				app["prerelease"]["update_notes"] = github.format_markdown(prerelease["body"], mode="gfm",
+															   context=app["github"])
 				app["prerelease"]["update_notes"] = re.sub(r'<a target="_blank" rel="noopener noreferrer" href="https:\/\/private-user-images.githubusercontent\.com.*?<\/a>', "", app["prerelease"]["update_notes"])
 
 				if "update_notes" not in app:
@@ -423,7 +393,7 @@ def handle_bitbucket_app(app: Dict[str, Any]):
 				app["downloads"][download[download.rfind("/") + 1:]] = {
 					"url": fileAPI["links"]["self"]["href"],
 					"size": fileAPI["size"],
-					"size_str": byteCount(fileAPI["size"])
+					"size_str": to_friendly_bytes(fileAPI["size"])
 				}
 
 			if "download_page" not in app:
@@ -471,7 +441,10 @@ def handle_gitlab_app(app: Dict[str, Any]):
 
 		if "update_notes" not in app and release["description"] != "" and release["description"] is not None:
 			app["update_notes_md"] = release["description"].replace("\r\n", "\n")
-			app["update_notes"] = release["description_html"].replace("\r\n", "\n")
+			if "description_html" in release:
+				app["update_notes"] = release["description_html"].replace("\r\n", "\n")
+			else:
+				app["update_notes"] = release["description"].replace("\r\n", "\n")
 
 		if "updated" not in app:
 			app["updated"] = release["released_at"]
@@ -509,6 +482,8 @@ def create_web_file(app: Dict[str, Any]):
 		web.pop("urls")
 	if "icon_index" in web:
 		web.pop("icon_index")
+	if "installed_files" in web:
+		web.pop("installed_files")
 	# Add defaults where absolutely needed
 	if "systems" not in web:
 		web["systems"] = ["3DS"]  # default to 3DS
@@ -516,12 +491,27 @@ def create_web_file(app: Dict[str, Any]):
 		web["updated"] = "---"
 	for sys in web["systems"]:
 		if "title" in web:
-			with open(path.join(DOCS_DIR, f"_{webName(sys)}", f"{webName(web['title'])}.md"), "w", encoding="utf8") as file:
+			with open(DOCS_DIR.joinpath(f"_{format_to_web_name(sys)}", f"{format_to_web_name(web['title'])}.md"), "w", encoding="utf8") as file:
 				file.write(f"---\n{yaml.dump(web, sort_keys=True, allow_unicode=True)}---\n")
 				if "long_description" in app:
 					file.write(app["long_description"])
 	
 	return web
+
+
+def handle_screenshots(app_title: str, docs_dir: pathlib.Path):
+	screenshots = []
+	screenshots_path = docs_dir.joinpath("assets", "images", "screenshots", format_to_web_name(app_title))
+	if screenshots_path.exists():
+		dirlist = sorted(screenshots_path.iterdir())
+		for screenshot in dirlist:
+			if screenshot.suffix.lower()[1:] in ["png", "gif", "jpg", "peg", "iff", "bmp"]:
+				screenshots.append({
+					"url": f"https://db.universal-team.net/assets/images/screenshots/{format_to_web_name(app_title)}/{screenshot.name}",
+					"description": screenshot.stem.capitalize().replace("-", " ")
+				})
+
+	return screenshots or None
 
 
 def create_error_report(e, app_name, webhook: discord.SyncWebhook):
@@ -533,312 +523,368 @@ def create_error_report(e, app_name, webhook: discord.SyncWebhook):
 	webhook.send(embeds=[embed])
 
 
-def main(sourceFolder, ghToken: str, priorityOnlyMode: bool, webhook_url: str) -> None:
+def fetch_app_data(app: Dict[str, Any], github_session: GitHubAPI):
+	# GBATemp is deprecated.
+	# if "gbatemp" in app:
+	# click.echo("GBAtemp Download Center")
+	# r = requests.get(f"https://gbatemp.net/download/{app['gbatemp']}/")
+	# if r.status_code != 200:
+	#	click.secho(f"Error {r.status_code:d}, using old data!", fg="yellow")
+	#	app = list(filter(lambda x: "gbatemp" in x and x["gbatemp"] == app["gbatemp"], old_data))[0]
+	# else:
+	#	app = handle_gbatemp_app(r, app)
+	if "gbatemp" in app:
+		# We don't need to match because we don't pull anything and we'll return prematurely
+		click.secho(f'{app["title"] if "title" in app else ""}: Using old data for GBATemp', fg='yellow')
+		return app
+
+	if "github" in app:
+		click.echo(f'GitHub -- {app["github"]}')
+		app = handle_github_app(github_session, app)
+
+	if "bitbucket" in app:
+		click.echo(f'Bitbucket -- {app["bitbucket"]["repo"]}')
+		app = handle_bitbucket_app(app)
+
+	if "gitlab" in app:
+		click.echo(f'GitLab -- {app["gitlab"]}')
+		app = handle_gitlab_app(app)
+
+	return app
+
+
+class FetchAppDataError(Exception):
+	def __init__(self, inner: Exception):
+		super().__init__("Failed to fetch app data")
+		self.inner = inner
+
+
+def process_app_entry(app: Dict[str, Any], fp: str, icon_idx: int, github_api: GitHubAPI, old_data,
+					  *, webhook=None) -> Optional[Tuple[Dict[str, Any], int]]:
+	iconIndex = icon_idx
+	app["stars"] = 0
+	oldData = old_data
+
+	try:
+		app = fetch_app_data(app, github_api)
+	except Exception as e:
+		trace = format_traceback(e)
+		if webhook:
+			title = app['title'] if "title" in app else fp
+			create_error_report(trace, title, webhook)
+
+		click.secho(trace, fg="red")
+		raise FetchAppDataError(e)
+
+	# Do not update stars in priority mode
+	if PRIORITY_MODE:
+		old = next((item for item in oldData if item["title"] == app["title"]), None)
+		if old:
+			app["stars"] = old["stars"]
+
+	# Process format strings in downloads if needed
+	if "eval_downloads" in app and app["eval_downloads"]:
+		if "download_page" in app and type(app["download_page"]) == str:
+			app["download_page"] = eval(app["download_page"])
+		if "downloads" in app:
+			for item in app["downloads"]:
+				if type(app["downloads"][item]["url"]) == str:
+					app["downloads"][item]["url"] = eval(app["downloads"][item]["url"])
+	if "eval_scripts" in app and app["eval_scripts"]:
+		if "scripts" in app:
+			for script in app["scripts"]:
+				for function in app["scripts"][script]:
+					if function["type"] == "downloadFile" and type(function["file"]) == str:
+						function["file"] = eval(function["file"])
+	if "eval_notes_md" in app and app["eval_notes_md"]:
+		if "update_notes_md" in app:
+			app["update_notes_md"] = eval(app["update_notes_md"])
+			if "update_notes" not in app:
+				app["update_notes"] = github_api.format_markdown(app["update_notes_md"], mode="gfm" if "github" in app else "markdown",
+													 			 context=app["github"] if "github" in app else None)
+
+	# If no markdown notes, generate from HTML
+	if "update_notes_md" not in app and "update_notes" in app:
+		app["update_notes_md"] = markdownify(app["update_notes"], bullets="-")
+
+	# Ensure URLs don't have spaces
+	for item in ["avatar", "download_page", "icon", "image", "source", "website", "wiki"]:
+		if item in app and app[item] is not None:
+			app[item] = requote_uri(app[item])
+
+	# Format update notes with GitHub's API
+	if "update_notes_md" in app and "update_notes" not in app:
+		app["update_notes"] = github_api.format_markdown(app["update_notes_md"],
+												   		 mode="gfm" if "github" in app else "markdown",
+												   		 context=app["github"] if "github" in app else None)
+
+	# Prematurely stop here, if no DOCS_DIR.
+	# CLI normally checks for DOCS_DIR, if this is the all command
+	if not DOCS_DIR:
+		return
+
+	# Handle app screenshots
+	screenshots = handle_screenshots(app["title"], DOCS_DIR)
+	if screenshots:
+		app["screenshots"] = screenshots
+
+	# Get missing download sizes
+	if "downloads" in app:
+		for download in app["downloads"]:
+			if "size" not in app["downloads"][download]:
+				if app["downloads"][download]["url"][:30] == "https://db.universal-team.net/":
+					download_path = DOCS_DIR.joinpath(app['downloads'][download]['url'][30:])
+					app["downloads"][download]["size"] = download_path.stat().st_size
+					app["downloads"][download]["size_str"] = to_friendly_bytes(app["downloads"][download]["size"])
+				else:
+					r = requests.head(app["downloads"][download]["url"], allow_redirects=True)
+					if r.status_code == 200 and "Content-Length" in r.headers:
+						app["downloads"][download]["size"] = int(r.headers["Content-Length"])
+						app["downloads"][download]["size_str"] = to_friendly_bytes(app["downloads"][download]["size"])
+
+	# Check for local icon / image
+	for ext in (".png", ".gif"):
+		if "icon" not in app and DOCS_DIR.joinpath("assets", "images", "icons", format_to_web_name(app['title']) + ext).exists():
+			app["icon"] = f"https://db.universal-team.net/assets/images/icons/{format_to_web_name(app['title'])}{ext}"
+
+	if "image" not in app and DOCS_DIR.joinpath("assets", "images", "images", f"{format_to_web_name(app['title'])}.png").exists():
+		app["image"] = f"https://db.universal-team.net/assets/images/images/{format_to_web_name(app['title'])}.png"
+	elif "image" not in app and "icon" in app:
+		app["image"] = app["icon"]
+	elif "image" not in app and "avatar" in app:
+		app["image"] = app["avatar"]
+		if "github" in app["image"]:
+			app["image"] += "&size=128"
+
+	# Get image size
+	if "image_length" not in app and "image" in app:
+		if app["image"][:30] == "https://db.universal-team.net/":
+			app["image_length"] = DOCS_DIR.joinpath(app["image"][30:]).stat().st_size
+		else:
+			r = requests.head(app["image"], allow_redirects=True)
+			if r.status_code == 200 and "Content-Length" in r.headers:
+				app["image_length"] = int(r.headers["Content-Length"])
+
+	# Make icon for UniStore and QR
+	img = None
+	if "icon" in app or "image" in app or "icon_static" in app:
+		url = app["icon_static"] if "icon_static" in app else (app["icon"] if "icon" in app else app["image"] if "image" in app else "")
+		file = None
+		if url[:30] == "https://db.universal-team.net/":
+			file = DOCS_DIR.joinpath(url[30:]).open("rb")
+		else:
+			r = requests.get(url)
+			if r.status_code == 200:
+				file = BytesIO(r.content)
+			else:
+				click.secho(f"Error {r.status_code} downloading image!", fg="red")
+
+		if file:
+			if PRIORITY_MODE:
+				old = next((item for item in oldData if item["title"] == app["title"]), {"icon_index": -1})
+				app["icon_index"] = old["icon_index"] if "icon_index" in old else -1
+			else:
+				app["icon_index"] = iconIndex
+
+			with Image.open(file) as img:
+				img, color = saveIcon(img, iconIndex, True)
+				if "color" not in app:
+					app["color"] = color
+				if "color_bg" not in app:
+					# Darken color to a maximum of 50% brightness
+					hsv = list(rgb_to_hsv(*[int(x, 16) / 255 for x in re.findall("#(..)(..)(..)", color)[0]]))
+					hsv[2] = min(0.5, hsv[2])
+					app["color_bg"] = "#%02x%02x%02x" % (*[round(x * 255) for x in hsv_to_rgb(*hsv)],)
+
+			if "icon" in app and app["icon"].endswith(".bmp"):
+				# This is also duplicated
+				# TODO: Remove duplication
+				tmp = TEMP_DIR.joinpath("48", f"{iconIndex}.png")
+				to_src = DOCS_DIR.joinpath("assets", "images", "icons", f"{format_to_web_name(app['title'])}.png")
+				copyfile(tmp, to_src)
+				app["icon"] = f"https://db.universal-team.net/assets/images/icons/{format_to_web_name(app['title'])}.png"
+			elif "icon_static" not in app and "icon" in app and app["icon"].endswith(".gif"):
+				tmp = TEMP_DIR.joinpath("48", f"{iconIndex}.png")
+				to_src = DOCS_DIR.joinpath("assets", "images", "icons", f"{format_to_web_name(app['title'])}.png")
+				copyfile(tmp, to_src)
+				app["icon_static"] = f"https://db.universal-team.net/assets/images/icons/{format_to_web_name(app['title'])}.png"
+
+			if "image" in app and app["image"].endswith(".bmp"):
+				app["image"] = app["icon"]
+
+			iconIndex += 1
+
+	# Make QR
+	if "downloads" in app:
+		for item in app["downloads"]:
+			if item.endswith(".cia") or item.endswith(".nds") or item.endswith(".dsi"):
+				qr = qrcode.make(app["downloads"][item]["url"], box_size=5, version=5).convert("RGBA")
+				if img:
+					draw = ImageDraw.Draw(qr)
+					draw.rectangle((((qr.width - img.width) // 2 - 5, (qr.height - img.height) // 2 - 10), ((qr.width + img.width) // 2 + 4, (qr.height + img.height) // 2 + 10 if "version" in app else 4)), fill=(255, 255, 255))
+					qr.paste(img, ((qr.width - img.width) // 2, (qr.height - img.height) // 2), mask=img if img.mode == "RGBA" else None)
+					if item.endswith(".cia"):
+						draw.text(((qr.width - img.width) // 2, (qr.height - img.height) // 2 - 10), "3", (255, 0, 0))
+						draw.text(((qr.width - img.width) // 2 + 6, (qr.height - img.height) // 2 - 10), "DS", (0, 0, 0))
+					else:
+						draw.text(((qr.width - img.width) // 2, (qr.height - img.height) // 2 - 10), "DSi", (0, 0, 0))
+					if "version" in app:
+						if img.width == 32 and len(app["version"]) > 5:
+							draw.text(((qr.width - img.width) // 2 - 2, (qr.height - img.height) // 2 + img.height), app["version"][:(img.width + 4) // 6], (0, 0, 0))
+						else:
+							draw.text(((qr.width - img.width) // 2, (qr.height - img.height) // 2 + img.height), app["version"][:img.width // 6], (0, 0, 0))
+				qr.save(DOCS_DIR.joinpath("assets", "images", "qr", f"{format_to_web_name(item)}.png"))
+				if "qr" not in app:
+					app["qr"] = {}
+				app["qr"][item] = f"https://db.universal-team.net/assets/images/qr/{format_to_web_name(item)}.png"
+
+	if "prerelease" in app:
+		for item in app["prerelease"]["downloads"]:
+			if item.endswith(".cia") or item.endswith(".nds") or item.endswith(".dsi"):
+				qr = qrcode.make(app["prerelease"]["downloads"][item]["url"], box_size=5, version=5).convert("RGBA")
+				data = numpy.array(qr)
+				r, g, b, a = data.T
+				black = (r == 0) & (g == 0) & (b == 0)
+				data[...][black.T] = (0xD2, 0x99, 0x22, 0xFF)
+				qr = Image.fromarray(data)
+				if img:
+					draw = ImageDraw.Draw(qr)
+					draw.rectangle((((qr.width - img.width) // 2 - 5, (qr.height - img.height) // 2 - 10), ((qr.width + img.width) // 2 + 4, (qr.height + img.height) // 2 + 10 if "version" in app["prerelease"] else 4)), fill=(255, 255, 255))
+					qr.paste(img, ((qr.width - img.width) // 2, (qr.height - img.height) // 2), mask=img if img.mode == "RGBA" else None)
+					if item.endswith(".cia"):
+						draw.text(((qr.width - img.width) // 2, (qr.height - img.height) // 2 - 10), "3", (255, 0, 0))
+						draw.text(((qr.width - img.width) // 2 + 6, (qr.height - img.height) // 2 - 10), "DS", (246, 106, 10))
+					else:
+						draw.text(((qr.width - img.width) // 2, (qr.height - img.height) // 2 - 10), "DSi", (246, 106, 10))
+					if "version" in app["prerelease"]:
+						draw.text(((qr.width - img.width) // 2, (qr.height - img.height) // 2 + img.height), app["prerelease"]["version"][:img.width // 6], (246, 106, 10))
+				qr.save(DOCS_DIR.joinpath("assets", "images", "qr", "prerelease", f"{format_to_web_name(item)}.png"))
+				if "qr" not in app["prerelease"]:
+					app["prerelease"]["qr"] = {}
+				app["prerelease"]["qr"][item] = f"https://db.universal-team.net/assets/images/qr/prerelease/{format_to_web_name(item)}.png"
+
+	if "nightly" in app:
+		for item in app["nightly"]["downloads"]:
+			if item.endswith(".cia") or item.endswith(".nds") or item.endswith(".dsi"):
+				qr = qrcode.make(app["nightly"]["downloads"][item]["url"], box_size=5, version=5).convert("RGBA")
+				data = numpy.array(qr)
+				r, g, b, a = data.T
+				black = (r == 0) & (g == 0) & (b == 0)
+				data[...][black.T] = (0, 0, 0xC0, 0xFF)
+				qr = Image.fromarray(data)
+				if img:
+					draw = ImageDraw.Draw(qr)
+					draw.rectangle((((qr.width - img.width) // 2 - 5, (qr.height - img.height) // 2 - 10), ((qr.width + img.width) // 2 + 4, (qr.height + img.height) // 2 + 4)), fill=(255, 255, 255))
+					qr.paste(img, ((qr.width - img.width) // 2, (qr.height - img.height) // 2), mask=img if img.mode == "RGBA" else None)
+					if item.endswith(".cia"):
+						draw.text(((qr.width - img.width) // 2, (qr.height - img.height) // 2 - 10), "3", (255, 0, 0))
+						draw.text(((qr.width - img.width) // 2 + 6, (qr.height - img.height) // 2 - 10), "DS", (0, 0, 192))
+					else:
+						draw.text(((qr.width - img.width) // 2, (qr.height - img.height) // 2 - 10), "DSi", (0, 0, 192))
+				qr.save(DOCS_DIR.joinpath("assets", "images", "qr", "nightly", f"{format_to_web_name(item)}.png"))
+				if "qr" not in app["nightly"]:
+					app["nightly"]["qr"] = {}
+				app["nightly"]["qr"][item] = f"https://db.universal-team.net/assets/images/qr/nightly/{format_to_web_name(item)}.png"
+	
+	return app, iconIndex
+
+
+class GitHubAPI:
+	def __init__(self, *, token=None):
+		self.session = requests.Session()
+
+		github_headers = {"Accept": "application/vnd.github+json",
+					  	  "X-GitHub-Api-Version": "2022-11-28"}
+		if token:
+			github_headers["Authorization"] = f"Bearer {token}"
+		self.session.headers.update(github_headers)
+
+	@functools.cache
+	def get_username(self, username: str):
+		resp = self.session.get(f"https://api.github.com/users/{username}")
+		if resp.status_code != 200:
+			resp.raise_for_status()
+			return
+
+		r = resp.json()
+		# Sometimes a display name is not set so we fallback to login name
+		return r['name'] or r['login']
+	
+	def format_markdown(self, content: str, *, mode: str = "markdown", context: Optional[str]) -> str:
+		data = {"text": content, "mode": mode}
+		if context:
+			data['context'] = context
+
+		resp = self.session.post("https://api.github.com/markdown", json=data)
+		if resp.status_code != 200:
+			resp.raise_for_status()
+
+		return resp.text
+
+
+def process_from_folder(sourceFolder: pathlib.Path, ghToken: str, webhook_url: str) -> None:
 	# Load app list json
 	source: List[Tuple[str, Dict[str, Any]]] = []
-	for item in listdir(sourceFolder):
-		fp = path.join(sourceFolder, item)
-		with open(fp, encoding="utf8") as f:
-			source.append((fp, json.load(f)))
+	for item in sourceFolder.iterdir():
+		with item.open(encoding="utf8") as f:
+			source.append((str(item), json.load(f)))
 
 	# Old data json
 	oldData = None
-	with open(path.join(DOCS_DIR, "data", "full.json"), "r", encoding="utf8") as file:
+	with open(DOCS_DIR.joinpath("data", "full.json"), "r", encoding="utf8") as file:
 		oldData = json.load(file)
 
 	output = []
-	iconIndex = 0
-	gh_name_cache = {}  # GitHub name cache
-	tempDir = path.join(path.dirname(sourceFolder), "temp")
-
-	# Create headers and a session for github specific requests
-	github_headers = {"Accept": "application/vnd.github+json",
-					  "X-GitHub-Api-Version": "2022-11-28"}
-	if ghToken:
-		github_headers["Authorization"] = f"Bearer {ghToken}"
-
-	gh_req = requests.Session()
-	gh_req.headers.update(github_headers)
+	iconIndex = 1 if BG_IMAGE else 0
+	github = GitHubAPI(token=ghToken)
 
 	unistore = UniStore(
 		"Universal-DB",
 		"Universal-Team",
 		"Universal-DB - An online database of 3DS and DS homebrew",
 		"https://db.universal-team.net/unistore/universal-db.unistore",
-		"https://db.universal-team.net/unistore/universal-db.t3x",
+		[f"https://db.universal-team.net/unistore/universal-db-{x}.t3x" for x in range(len(source) // ICONS_PER_SHEET + 1)],
 		"https://db.universal-team.net/unistore/universal-db.tdx",
-		"https://db.universal-team.net/unistore/universal-db-info.json"
+		"https://db.universal-team.net/unistore/universal-db-info.json",
+		bool(BG_IMAGE)
 	)
 
 	# Fetch info for GitHub apps and output
-	for i, _app in enumerate(source):
-		fp, app = _app
+	for i, (fp, app) in enumerate(source):
 		doUpdate = True
 		# Only update alternating halves of the list to save API hits
 		# doUpdate = ((i % 2) == int((datetime.now().hour % 12) > 5))
 
-		if priorityOnlyMode or not doUpdate:
-			temp = list(filter(lambda x: "github" in x and "github" in app and x["github"] == app["github"], oldData))
-			if len(temp) == 0:
-				temp = list(filter(lambda x: "gbatemp" in x and "gbatemp" in app and x["gbatemp"] == app["gbatemp"], oldData))
-			if len(temp) == 0:
-				temp = list(filter(lambda x: "bitbucket" in x and "bitbucket" in app and x["bitbucket"]["repo"] == app["bitbucket"]["repo"], oldData))
-			if len(temp) == 0:
-				temp = list(filter(lambda x: "title" in x and "author" in x and "title" in app and "author" in app and x["title"] == app["title"] and x["author"] == app["author"], oldData))
-			if len(temp) == 0:
-				temp = list(filter(lambda x: "gitlab" in x and "gitlab" in app and x["gitlab"] == app["gitlab"], oldData))
+		if PRIORITY_MODE or not doUpdate:
+			old_app = get_matching_app(app, oldData)
 
-			# Always treat apps that updated in the last 30 days as priority
-			if len(temp) > 0:
-				daysSinceUpdate = 1000
-				if "updated" in temp[0]:
-					daysSinceUpdate = (datetime.now(tz=timezone.utc) - parser.parse(temp[0]["updated"])).days
-
-				doUpdate = daysSinceUpdate <= 30
+			if old_app:
+				doUpdate = was_recently_updated(old_app)  # If old data was found and was recently updated, check it again.
 				if not doUpdate:
-					app = temp[0]
+					app = old_app  # Rely on old data since we're not updating
 			else:
+				# This is a new app so fetch data for it.
 				doUpdate = True
 
 		webhook = discord.SyncWebhook.from_url(webhook_url) if webhook_url else None
 
 		if doUpdate:
-			app["stars"] = 0
-
 			try:
-				if "gbatemp" in app:
-					print("GBAtemp Download Center")
-					r = requests.get(f"https://gbatemp.net/download/{app['gbatemp']}/")
-					if r.status_code != 200:
-						print(f"Error {r.status_code:d}, using old data!")
-						app = list(filter(lambda x: "gbatemp" in x and x["gbatemp"] == app["gbatemp"], oldData))[0]
-					else:
-						app = handle_gbatemp_app(r, app)
-
-				if "github" in app:
-					print("GitHub --", app["github"])
-					app = handle_github_app(gh_req, app, gh_name_cache)
-
-				if "bitbucket" in app:
-					print("Bitbucket --", app["bitbucket"]["repo"])
-					app = handle_bitbucket_app(app)
-
-				if "gitlab" in app:
-					print("Gitlab --", app["gitlab"])
-					app = handle_gitlab_app(app)
+				app, iconIndex = process_app_entry(app, fp, iconIndex, github, oldData, webhook=webhook)
+			except FetchAppDataError:
+				continue
 			except Exception as e:
-				trace = create_traceback(e)
-				print(trace)
+				trace = format_traceback(e)
 				if webhook:
 					title = app['title'] if "title" in app else fp
 					create_error_report(trace, title, webhook)
+
+				click.secho(trace, fg="red")
 				continue
 
-			# Process format strings in downloads if needed
-			if "eval_downloads" in app and app["eval_downloads"]:
-				if "download_page" in app and type(app["download_page"]) == str:
-					app["download_page"] = eval(app["download_page"])
-				if "downloads" in app:
-					for item in app["downloads"]:
-						if type(app["downloads"][item]["url"]) == str:
-							app["downloads"][item]["url"] = eval(app["downloads"][item]["url"])
-			if "eval_scripts" in app and app["eval_scripts"]:
-				if "scripts" in app:
-					for script in app["scripts"]:
-						for function in app["scripts"][script]:
-							if function["type"] == "downloadFile" and type(function["file"]) == str:
-								function["file"] = eval(function["file"])
-			if "eval_notes_md" in app and app["eval_notes_md"]:
-				if "update_notes_md" in app:
-					app["update_notes_md"] = eval(app["update_notes_md"])
-					if "update_notes" not in app:
-						app["update_notes"] = gh_req.post("https://api.github.com/markdown", json={"text": app["update_notes_md"], "mode": "gfm" if "github" in app else "markdown", "context": app["github"] if "github" in app else None}).text
-
-			# If no markdown notes, generate from HTML
-			if "update_notes_md" not in app and "update_notes" in app:
-				app["update_notes_md"] = markdownify(app["update_notes"], bullets="-")
-
-			# Ensure URLs don't have spaces
-			for item in ["avatar", "download_page", "icon", "image", "source", "website", "wiki"]:
-				if item in app:
-					app[item] = requote_uri(app[item])
-
-			# Check for screenshots
-			if path.exists(path.join(DOCS_DIR, "assets", "images", "screenshots", webName(app["title"]))):
-				if "screenshots" not in app:
-					app["screenshots"] = []
-				dirlist = listdir(path.join(DOCS_DIR, "assets", "images", "screenshots", webName(app["title"])))
-				dirlist.sort()
-				for screenshot in dirlist:
-					if screenshot[-3:] in ["png", "gif", "jpg", "peg", "iff", "bmp"]:
-						app["screenshots"].append({
-							"url": f"https://db.universal-team.net/assets/images/screenshots/{webName(app['title'])}/{screenshot}",
-							"description": screenshot[:screenshot.rfind(".")].capitalize().replace("-", " ")
-						})
-
-			# Format update notes with GitHub's API
-			if "update_notes_md" in app and "update_notes" not in app:
-				app["update_notes"] = gh_req.post("https://api.github.com/markdown", json={"text": app["update_notes_md"], "mode": "gfm" if "github" in app else "markdown", "context": app["github"] if "github" in app else None}).text
-
-			# Get missing download sizes
-			if "downloads" in app:
-				for download in app["downloads"]:
-					if "size" not in app["downloads"][download]:
-						if app["downloads"][download]["url"][:30] == "https://db.universal-team.net/":
-							app["downloads"][download]["size"] = path.getsize(path.join(DOCS_DIR, app['downloads'][download]['url'][30:]))
-							app["downloads"][download]["size_str"] = byteCount(app["downloads"][download]["size"])
-						else:
-							r = requests.head(app["downloads"][download]["url"], allow_redirects=True)
-							if r.status_code == 200 and "Content-Length" in r.headers:
-								app["downloads"][download]["size"] = int(r.headers["Content-Length"])
-								app["downloads"][download]["size_str"] = byteCount(app["downloads"][download]["size"])
-
-			# Check for local icon / image
-			for ext in (".png", ".gif"):
-				if "icon" not in app and path.exists(path.join(DOCS_DIR, "assets", "images", "icons", webName(app['title']) + ext)):
-					app["icon"] = f"https://db.universal-team.net/assets/images/icons/{webName(app['title'])}{ext}"
-
-			if "image" not in app and path.exists(path.join(DOCS_DIR, "assets", "images", "images", f"{webName(app['title'])}.png")):
-				app["image"] = f"https://db.universal-team.net/assets/images/images/{webName(app['title'])}.png"
-			elif "image" not in app and "icon" in app:
-				app["image"] = app["icon"]
-			elif "image" not in app and "avatar" in app:
-				app["image"] = app["avatar"]
-				if "github" in app["image"]:
-					app["image"] += "&size=128"
-
-			# Get image size
-			if "image_length" not in app and "image" in app:
-				if app["image"][:30] == "https://db.universal-team.net/":
-					app["image_length"] = path.getsize(path.join(DOCS_DIR, app["image"][30:]))
-				else:
-					r = requests.head(app["image"], allow_redirects=True)
-					if r.status_code == 200 and "Content-Length" in r.headers:
-						app["image_length"] = int(r.headers["Content-Length"])
-
-			# Make icon for UniStore and QR
-			img = None
-			if "icon" in app or "image" in app or "icon_static" in app:
-				if not path.exists(path.join(tempDir, "48")):
-					makedirs(path.join(tempDir, "48"))
-				if not path.exists(path.join(tempDir, "32")):
-					makedirs(path.join(tempDir, "32"))
-
-				url = app["icon_static"] if "icon_static" in app else (app["icon"] if "icon" in app else app["image"] if "image" in app else "")
-				file = None
-				if url[:30] == "https://db.universal-team.net/":
-					file = open(path.join(DOCS_DIR, url[30:]), "rb")
-				else:
-					r = requests.get(url)
-					if r.status_code == 200:
-						file = BytesIO(r.content)
-					else:
-						print(f"Error {r.status_code} downloading image!")
-
-				if file:
-					if priorityOnlyMode:
-						old = next((item for item in oldData if item["title"] == app["title"]), {"icon_index": -1})
-						app["icon_index"] = old["icon_index"] if "icon_index" in old else -1
-					else:
-						app["icon_index"] = iconIndex
-
-					with Image.open(file) as img:
-						img, color = saveIcon(img, tempDir, iconIndex, True)
-						if "color" not in app:
-							app["color"] = color
-						if "color_bg" not in app:
-							# Darken color to a maximum of 50% brightness
-							hsv = list(rgb_to_hsv(*[int(x, 16) / 255 for x in re.findall("#(..)(..)(..)", color)[0]]))
-							hsv[2] = min(0.5, hsv[2])
-							app["color_bg"] = "#%02x%02x%02x" % (*[round(x * 255) for x in hsv_to_rgb(*hsv)],)
-
-					if "icon" in app and app["icon"].endswith(".bmp"):
-						copyfile(path.join(tempDir, "48", f"{iconIndex}.png"), path.join(DOCS_DIR, "assets", "images", "icons", f"{webName(app['title'])}.png"))
-						app["icon"] = f"https://db.universal-team.net/assets/images/icons/{webName(app['title'])}.png"
-					elif "icon_static" not in app and "icon" in app and app["icon"].endswith(".gif"):
-						copyfile(path.join(tempDir, "48", f"{iconIndex}.png"), path.join(DOCS_DIR, "assets", "images", "icons", f"{webName(app['title'])}.png"))
-						app["icon_static"] = f"https://db.universal-team.net/assets/images/icons/{webName(app['title'])}.png"
-
-					if "image" in app and app["image"].endswith(".bmp"):
-						app["image"] = app["icon"]
-
-					iconIndex += 1
-
-			# Make QR
-			if "downloads" in app:
-				for item in app["downloads"]:
-					if item.endswith(".cia") or item.endswith(".nds") or item.endswith(".dsi"):
-						qr = qrcode.make(app["downloads"][item]["url"], box_size=5, version=5).convert("RGBA")
-						if img:
-							draw = ImageDraw.Draw(qr)
-							draw.rectangle((((qr.width - img.width) // 2 - 5, (qr.height - img.height) // 2 - 10), ((qr.width + img.width) // 2 + 4, (qr.height + img.height) // 2 + 10 if "version" in app else 4)), fill=(255, 255, 255))
-							qr.paste(img, ((qr.width - img.width) // 2, (qr.height - img.height) // 2), mask=img if img.mode == "RGBA" else None)
-							if item.endswith(".cia"):
-								draw.text(((qr.width - img.width) // 2, (qr.height - img.height) // 2 - 10), "3", (255, 0, 0))
-								draw.text(((qr.width - img.width) // 2 + 6, (qr.height - img.height) // 2 - 10), "DS", (0, 0, 0))
-							else:
-								draw.text(((qr.width - img.width) // 2, (qr.height - img.height) // 2 - 10), "DSi", (0, 0, 0))
-							if "version" in app:
-								if img.width == 32 and len(app["version"]) > 5:
-									draw.text(((qr.width - img.width) // 2 - 2, (qr.height - img.height) // 2 + img.height), app["version"][:(img.width + 4) // 6], (0, 0, 0))
-								else:
-									draw.text(((qr.width - img.width) // 2, (qr.height - img.height) // 2 + img.height), app["version"][:img.width // 6], (0, 0, 0))
-						qr.save(path.join(DOCS_DIR, "assets", "images", "qr", f"{webName(item)}.png"))
-						if "qr" not in app:
-							app["qr"] = {}
-						app["qr"][item] = f"https://db.universal-team.net/assets/images/qr/{webName(item)}.png"
-
-			if "prerelease" in app:
-				for item in app["prerelease"]["downloads"]:
-					if item.endswith(".cia") or item.endswith(".nds") or item.endswith(".dsi"):
-						qr = qrcode.make(app["prerelease"]["downloads"][item]["url"], box_size=5, version=5).convert("RGBA")
-						data = numpy.array(qr)
-						r, g, b, a = data.T
-						black = (r == 0) & (g == 0) & (b == 0)
-						data[...][black.T] = (0xD2, 0x99, 0x22, 0xFF)
-						qr = Image.fromarray(data)
-						if img:
-							draw = ImageDraw.Draw(qr)
-							draw.rectangle((((qr.width - img.width) // 2 - 5, (qr.height - img.height) // 2 - 10), ((qr.width + img.width) // 2 + 4, (qr.height + img.height) // 2 + 10 if "version" in app["prerelease"] else 4)), fill=(255, 255, 255))
-							qr.paste(img, ((qr.width - img.width) // 2, (qr.height - img.height) // 2), mask=img if img.mode == "RGBA" else None)
-							if item.endswith(".cia"):
-								draw.text(((qr.width - img.width) // 2, (qr.height - img.height) // 2 - 10), "3", (255, 0, 0))
-								draw.text(((qr.width - img.width) // 2 + 6, (qr.height - img.height) // 2 - 10), "DS", (246, 106, 10))
-							else:
-								draw.text(((qr.width - img.width) // 2, (qr.height - img.height) // 2 - 10), "DSi", (246, 106, 10))
-							if "version" in app["prerelease"]:
-								draw.text(((qr.width - img.width) // 2, (qr.height - img.height) // 2 + img.height), app["prerelease"]["version"][:img.width // 6], (246, 106, 10))
-						qr.save(path.join(DOCS_DIR, "assets", "images", "qr", "prerelease", f"{webName(item)}.png"))
-						if "qr" not in app["prerelease"]:
-							app["prerelease"]["qr"] = {}
-						app["prerelease"]["qr"][item] = f"https://db.universal-team.net/assets/images/qr/prerelease/{webName(item)}.png"
-
-			if "nightly" in app:
-				for item in app["nightly"]["downloads"]:
-					if item.endswith(".cia") or item.endswith(".nds") or item.endswith(".dsi"):
-						qr = qrcode.make(app["nightly"]["downloads"][item]["url"], box_size=5, version=5).convert("RGBA")
-						data = numpy.array(qr)
-						r, g, b, a = data.T
-						black = (r == 0) & (g == 0) & (b == 0)
-						data[...][black.T] = (0, 0, 0xC0, 0xFF)
-						qr = Image.fromarray(data)
-						if img:
-							draw = ImageDraw.Draw(qr)
-							draw.rectangle((((qr.width - img.width) // 2 - 5, (qr.height - img.height) // 2 - 10), ((qr.width + img.width) // 2 + 4, (qr.height + img.height) // 2 + 4)), fill=(255, 255, 255))
-							qr.paste(img, ((qr.width - img.width) // 2, (qr.height - img.height) // 2), mask=img if img.mode == "RGBA" else None)
-							if item.endswith(".cia"):
-								draw.text(((qr.width - img.width) // 2, (qr.height - img.height) // 2 - 10), "3", (255, 0, 0))
-								draw.text(((qr.width - img.width) // 2 + 6, (qr.height - img.height) // 2 - 10), "DS", (0, 0, 192))
-							else:
-								draw.text(((qr.width - img.width) // 2, (qr.height - img.height) // 2 - 10), "DSi", (0, 0, 192))
-						qr.save(path.join(DOCS_DIR, "assets", "images", "qr", "nightly", f"{webName(item)}.png"))
-						if "qr" not in app["nightly"]:
-							app["nightly"]["qr"] = {}
-						app["nightly"]["qr"][item] = f"https://db.universal-team.net/assets/images/qr/nightly/{webName(item)}.png"
-
 		if "title" in app:
-			app["slug"] = webName(app["title"])
-			print(app["slug"])
+			app["slug"] = format_to_web_name(app["title"])
+			click.echo(app["slug"])
 
 			app["urls"] = []
 			for sys in app["systems"]:
@@ -889,6 +935,10 @@ def main(sourceFolder, ghToken: str, priorityOnlyMode: bool, webhook_url: str) -
 				app["wiki"] if "wiki" in app else "",
 				app["icon_index"] if "icon_index" in app else -1,
 				app["color_bg"] if "color_bg" in app else app["color"] if "color" in app else "",
+				app["stars"] if "stars" in app else 0,
+				app["script_message"] if "script_message" in app else "",
+				app["unique_ids"] if "unique_ids" in app else [],
+				app["installed_files"] if "installed_files" in app else []
 			)
 
 			# Change "DS" to "NDS" so it can be searched for
@@ -913,9 +963,8 @@ def main(sourceFolder, ghToken: str, priorityOnlyMode: bool, webhook_url: str) -
 								items = {file: None}
 
 							for item in items:
-								scriptMessage = app["script_message"] if "script_message" in app else None
-								sizeStr = byteCount(app["downloads"][file]["size"]) if "size" in app["downloads"][file] else None
-								entry.addDownloadScript(item, file, app["downloads"][file]["url"], scriptMessage, items[item], sizeStr)
+								sizeStr = to_friendly_bytes(app["downloads"][file]["size"]) if "size" in app["downloads"][file] else None
+								entry.addDownloadScript(item, file, app["downloads"][file]["url"], items[item], sizeStr)
 
 				if "prerelease" in app:
 					for file in app["prerelease"]["downloads"]:
@@ -927,9 +976,8 @@ def main(sourceFolder, ghToken: str, priorityOnlyMode: bool, webhook_url: str) -
 								items = {file: None}
 
 							for item in items:
-								scriptMessage = app["script_message"] if "script_message" in app else None
-								sizeStr = byteCount(app["prerelease"]["downloads"][file]["size"]) if "size" in app["prerelease"]["downloads"][file] else None
-								entry.addDownloadScript(item, file, app["prerelease"]["downloads"][file]["url"], scriptMessage, items[item], sizeStr, "prerelease")
+								sizeStr = to_friendly_bytes(app["prerelease"]["downloads"][file]["size"]) if "size" in app["prerelease"]["downloads"][file] else None
+								entry.addDownloadScript(item, file, app["prerelease"]["downloads"][file]["url"], items[item], sizeStr, "prerelease")
 
 				if "nightly" in app:
 					for file in app["nightly"]["downloads"]:
@@ -941,55 +989,141 @@ def main(sourceFolder, ghToken: str, priorityOnlyMode: bool, webhook_url: str) -
 								items = {file: None}
 
 							for item in items:
-								scriptMessage = app["script_message"] if "script_message" in app else None
-								sizeStr = byteCount(app["nightly"]["downloads"][file]["size"]) if "size" in app["nightly"]["downloads"][file] else None
-								entry.addDownloadScript(item, file, app["nightly"]["downloads"][file]["url"], scriptMessage, items[item], sizeStr, "nightly")
+								sizeStr = to_friendly_bytes(app["nightly"]["downloads"][file]["size"]) if "size" in app["nightly"]["downloads"][file] else None
+								entry.addDownloadScript(item, file, app["nightly"]["downloads"][file]["url"], items[item], sizeStr, "nightly")
 
 			if app["title"] == "RetroArch":
 				entry._entry["info"]["description"] += "\n\nCores must be downloaded from their separate UniStore, which can be added in settings."
-				if not priorityOnlyMode:
-					retroarchUniStore(tempDir)
+				if not PRIORITY_MODE:
+					retroarchUniStore()
 
 			unistore.append(entry)
 
-		print("=" * 80)
+		click.echo("=" * 80)
 
-	if not priorityOnlyMode:
+	if not PRIORITY_MODE:
 		# Make tdx
-		with open(path.join(DOCS_DIR, "unistore", "universal-db.tdx"), "wb") as tdx:
-			img2tdx(("-gb -gB8 -gzl", *[f"{i}.png" for i in range(iconIndex)]), tdx, imgPath=path.join(tempDir, "32"))
+		with open(DOCS_DIR.joinpath("unistore", "universal-db.tdx"), "wb") as tdx:
+			img2tdx(("-gb -gB8 -gzl", *[f"{i}.png" for i in range(1 if BG_IMAGE else 0, iconIndex)]), tdx, imgPath=str(TEMP_DIR / "32"))
 
-		# Make t3x
-		with open(path.join(tempDir, "48", "icons.t3s"), "w", encoding="utf8") as file:
-			file.write("--atlas -f rgba -z auto\n\n")
-			for i in range(iconIndex):
-				file.write(f"{i}.png\n")
-		system(f"tex3ds -i {path.join(tempDir, '48', 'icons.t3s')} -o {path.join(DOCS_DIR, 'unistore', 'universal-db.t3x')}")
+		# Make t3x(s)
+		# They can actually fit a bit more than 400 icons,
+		# but there's not a huge size cost to not 100% filling them
+		# and this is safer
+		sheetCount = iconIndex // ICONS_PER_SHEET + 1
+		for sheet in range(sheetCount):
+			with TEMP_DIR.joinpath("48", f"icons{sheet}.t3s").open("w", encoding="utf8") as file:
+				file.write("--atlas -f rgba -z auto\n\n")
+
+				if sheet == 0 and BG_IMAGE:
+					file.write(BG_IMAGE + "\n")
+
+
+				start = max(sheet * ICONS_PER_SHEET, 1 if BG_IMAGE else 0)
+				end = min((sheet + 1) * ICONS_PER_SHEET, iconIndex)
+				for i in range(start, end):
+					file.write(f"{i}.png\n")
+			infile = str(TEMP_DIR.joinpath("48", f"icons{sheet}.t3s"))
+			outfile = str(DOCS_DIR.joinpath("unistore", f"universal-db-{sheet}.t3x"))
+			system(f"tex3ds -i {infile} -o {outfile}")
 
 	# Write UniStore and metadata
-	unistore.save(path.join(DOCS_DIR, "unistore", "universal-db.unistore"), path.join(DOCS_DIR, "unistore", "universal-db-info.json"))
+	unistore.save(DOCS_DIR.joinpath("unistore", "universal-db.unistore"), DOCS_DIR.joinpath("unistore", "universal-db-info.json"))
 
 	# Write output file
-	with open(path.join(DOCS_DIR, "data", "full.json"), "w", encoding="utf8") as file:
+	with DOCS_DIR.joinpath("data", "full.json").open("w", encoding="utf8") as file:
 		json.dump(output, file, sort_keys=True, ensure_ascii=False)
 
 
+def check_for_docs_dir(path: str) -> pathlib.Path:
+	docs_path = pathlib.Path(path)
+	exists = docs_path.exists()
+	if not exists:
+		docs_path = click.prompt(text="Unable to find the docs directory, please type a directory in.\nControl-C to cancel this!",
+								 type=click.Path(exists=True, file_okay=False))
+	
+	return docs_path
+
+
+@click.group()
+def main_entry_group():
+	# Prematurely make the temp directories, just in case.
+	pth = TEMP_DIR
+	if pth.exists() is False:
+		pth.mkdir()
+
+	if not pth.joinpath("48").exists():
+		pth.joinpath("48").mkdir()
+	if not pth.joinpath("32").exists():
+		pth.joinpath("32").mkdir()
+
+	click.help_option()
+
+
+@main_entry_group.command(name="all")
+@click.argument("source", default=str(SCRIPT_DIR / ("apps")), type=click.Path(exists=True, file_okay=False)) #  help="The folder to find apps in")
+@click.argument("docs", default=str(SCRIPT_DIR.parent / "docs"), type=click.Path(file_okay=False)) #  help="The location to output documentation to")
+@click.option("--background", "-b", type=click.Path(exists=True, resolve_path=True), help="Background image for UU")
+@click.option("--github-token", "-t", help="A GitHub API token", envvar="TOKEN")
+@click.option("--priority", "-p", is_flag=True, default=False, help="Skips apps that are not updated within the last 30 days")
+@click.option("--error-webhook", "-er", type=str, envvar="WEBHOOK_URL", default=None)
+def all_command(source: str, docs: str, background: str, github_token: str, priority: bool, error_webhook: str):
+	"""Processes every app in a given directory"""
+	docs_path = check_for_docs_dir(docs)
+	global DOCS_DIR
+	DOCS_DIR = docs_path
+	source_path = pathlib.Path(source)
+
+	global BG_IMAGE
+	BG_IMAGE = background
+
+	global PRIORITY_MODE
+	PRIORITY_MODE = priority
+
+	click.secho("Found the source directory and docs directory", fg='green')
+	click.echo(f"Source: {source_path.resolve()}")
+	click.echo(f"Docs: {docs_path.resolve()}")
+	click.echo(f"Background image: {BG_IMAGE}")
+	click.echo(f"Priority Mode: {PRIORITY_MODE}")
+	process_from_folder(source_path, github_token, error_webhook)
+
+
+@main_entry_group.command()
+@click.argument("docs", default=str(SCRIPT_DIR.parent / "docs"), type=click.Path(file_okay=False))
+def gen_retroarch(docs):
+	"""Generates the RetroArch Unistore ONLY"""
+	docs_path = check_for_docs_dir(docs)
+	global DOCS_DIR
+	DOCS_DIR = docs_path
+
+	retroarchUniStore()
+
+
+@main_entry_group.command()
+@click.argument("apps", type=click.File(mode="r"), nargs=-1)
+@click.option("--github-token", help="A GitHub API token", envvar="TOKEN")
+@click.option("--docs", default=str(SCRIPT_DIR.parent / "docs"), type=click.Path(file_okay=False))
+def app_test(apps: TextIO, github_token: Optional[str], docs: str):
+	"""Tests individual apps if it is fetchable and workable with for UDB"""
+	api = GitHubAPI(token=github_token)
+	docs_path = check_for_docs_dir(docs)
+	global DOCS_DIR
+	DOCS_DIR = docs_path
+
+	if len(apps) < 1:
+		click.echo("Please specifiy at least one app")
+		exit(1)
+
+	for app in apps:
+		content = json.loads(app.read())
+
+		entry = process_app_entry(content, app.name, 0, api, {})
+		if not entry:
+			click.echo("Unable to process the app!")
+			exit(1)
+			return
+
+		click.echo(json.dumps(entry[0], indent=4))
+
 if __name__ == "__main__":
-	argParser = ArgumentParser(description="Generates the Universal-DB website and UniStores from a JSON")
-	argParser.add_argument("source", metavar="apps", type=str, help="source JSON folder")
-	argParser.add_argument("docs", metavar=DOCS_DIR, type=str, help="location to output to")
-	argParser.add_argument("--token", "-t", type=str, help="GitHub API token (to get around rate limit", default=os.environ.get('TOKEN'))
-	argParser.add_argument("--priority", "-p", action="store_true", help="skips all apps not marked priority/updated within 30 days")
-	argParser.add_argument("--error_webhook", "-er", type=str, help="Notifies a Discord channel if an exception occurred during the script", default=os.environ.get('WEBHOOK_URL'))
-
-	args = argParser.parse_args()
-	DOCS_DIR = args.docs
-
-	try:
-		main(args.source, args.token, args.priority, args.error_webhook)
-	except Exception as e:
-		trace = create_traceback(e)
-		print(trace)
-		if args.error_webhook:
-			webhook = discord.SyncWebhook.from_url(args.error_webhook)
-			create_error_report(trace, None, webhook)
+	main_entry_group()

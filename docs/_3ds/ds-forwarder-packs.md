@@ -20,13 +20,13 @@ image: https://db.universal-team.net/assets/images/icons/ds-forwarder-packs.png
 image_length: 630
 layout: app
 source: https://github.com/RocketRobz/NTR_Forwarder
-stars: 90
+stars: 101
 systems:
 - 3DS
 - DS
 title: DS Forwarder Packs
-update_notes: '<p dir="auto">Includes <a href="https://github.com/DS-Homebrew/nds-bootstrap/releases/tag/v2.5.0">nds-bootstrap
-  v2.5.0</a></p>
+update_notes: '<p dir="auto"><strong>UPDATE 12/26/2025:</strong> Includes <a href="https://github.com/DS-Homebrew/nds-bootstrap/releases/tag/v2.12.1">nds-bootstrap
+  v2.12.1</a></p>
 
   <p dir="auto">To install or update:</p>
 
@@ -54,18 +54,35 @@ update_notes: '<p dir="auto">Includes <a href="https://github.com/DS-Homebrew/nd
 
   </ul>
 
-  <h3 dir="auto">What''s new?</h3>
+  <h3 dir="auto">🎁 What''s new? 🎁</h3>
 
   <ul dir="auto">
 
-  <li>Added <code class="notranslate">DS Phat Colors</code> per-game setting for DSi/3DS
-  users.</li>
+  <li>The Nintendo DS(i) splash screen (ported over from TWLMenu++) is now shown before
+  the game starts!</li>
 
-  <li>Removed <code class="notranslate">Card Read DMA</code> per-game setting for
-  flashcard users.</li>
+  <li><a class="user-mention notranslate" data-hovercard-type="user" data-hovercard-url="/users/Wokann/hovercard"
+  data-octo-click="hovercard-link-click" data-octo-dimensions="link_type:self" href="https://github.com/Wokann">@Wokann</a>:
+  The <code class="notranslate">Save Relocation</code> setting has been added to per-game
+  settings menu. Turning it off will make the ROM read the save from the inserted
+  DS game card if the title ID matches.</li>
+
+  </ul>
+
+  <h3 dir="auto">🎁 Bug fixes 🎁</h3>
+
+  <ul dir="auto">
+
+  <li>As a result of the DS(i) splash being added, the per-game settings (opened by
+  holding <code class="notranslate">Y</code> button) now opens consistently!</li>
+
+  <li>Fixed <em>Battle/Combat of Giants: Mutant Insects</em> being detected as homebrew.</li>
+
+  <li>Ported from melonDS, the save types for <em>Puzzler World USA</em> &amp; <em>Legacy
+  of Ys: Books I &amp; II</em> have been fixed!</li>
 
   </ul>'
-updated: '2025-05-24T04:16:42Z'
-version: SD-24
-version_title: 'GitHub Release #24'
+updated: '2025-12-25T09:09:31Z'
+version: SD-25
+version_title: 'GitHub Release #25: TWL Christmas Release 🎄'
 ---

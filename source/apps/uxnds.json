@@ -11,6 +11,12 @@
 	"wiki": "https://wiki.xxiivv.com/site/uxn.html",
 	"website": "https://100r.co/site/uxn.html",
 	"icon": "https://raw.githubusercontent.com/asiekierka/uxnds/main/misc/uxn48.png",
+	"installed_files": [
+		"%3DSX%/uxnds.3dsx",
+		"%NDS%/uxnds.nds",
+		"%NDS%/uxnds_debug.nds",
+		"%NDS%/uxnds_profile.nds"
+	],
 	"scripts": {
 		"uxnds.3dsx": [
 			{
@@ -28,8 +34,8 @@
 			{
 				"type": "extractFile",
 				"file": "/uxnds.zip",
-				"input": "uxn",
-				"output": "/uxn"
+				"input": "uxn/",
+				"output": "/uxn/"
 			},
 			{
 				"type": "deleteFile",
@@ -52,8 +58,8 @@
 			{
 				"type": "extractFile",
 				"file": "/uxnds.zip",
-				"input": "uxn",
-				"output": "/uxn"
+				"input": "uxn/",
+				"output": "/uxn/"
 			},
 			{
 				"type": "deleteFile",
@@ -76,8 +82,8 @@
 			{
 				"type": "extractFile",
 				"file": "/uxnds.zip",
-				"input": "uxn",
-				"output": "/uxn"
+				"input": "uxn/",
+				"output": "/uxn/"
 			},
 			{
 				"type": "deleteFile",
@@ -100,8 +106,8 @@
 			{
 				"type": "extractFile",
 				"file": "/uxnds.zip",
-				"input": "uxn",
-				"output": "/uxn"
+				"input": "uxn/",
+				"output": "/uxn/"
 			},
 			{
 				"type": "deleteFile",

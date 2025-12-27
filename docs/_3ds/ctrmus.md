@@ -9,14 +9,18 @@ created: '2016-10-23T18:40:55Z'
 description: 3DS Music Player
 download_page: https://github.com/deltabeard/ctrmus/releases
 downloads:
+  ctrmus-v0.5.3.zip:
+    size: 4686085
+    size_str: 4 MiB
+    url: https://github.com/deltabeard/ctrmus/releases/download/v0.5.3/ctrmus-v0.5.3.zip
+  ctrmus.3dsx:
+    size: 1378100
+    size_str: 1 MiB
+    url: https://github.com/deltabeard/ctrmus/releases/download/v0.5.3/ctrmus.3dsx
   ctrmus.cia:
-    size: 1036224
-    size_str: 1011 KiB
-    url: https://github.com/deltabeard/ctrmus/releases/download/0.4.12/ctrmus.cia
-  ctrmus.zip:
-    size: 3047167
-    size_str: 2 MiB
-    url: https://github.com/deltabeard/ctrmus/releases/download/0.4.12/ctrmus.zip
+    size: 1403328
+    size_str: 1 MiB
+    url: https://github.com/deltabeard/ctrmus/releases/download/v0.5.3/ctrmus.cia
 github: deltabeard/ctrmus
 icon: https://raw.githubusercontent.com/deltabeard/ctrmus/master/meta/icon.png
 image: https://raw.githubusercontent.com/deltabeard/ctrmus/master/meta/banner.png
@@ -27,28 +31,36 @@ license_name: GNU General Public License v3.0
 qr:
   ctrmus.cia: https://db.universal-team.net/assets/images/qr/ctrmus-cia.png
 source: https://github.com/deltabeard/ctrmus
-stars: 99
+stars: 121
 systems:
 - 3DS
 title: ctrmus
 unique_ids:
 - '0xFF3CC'
-update_notes: '<ul dir="auto">
+update_notes: '<h2 dir="auto">What''s Changed</h2>
 
-  <li>Add OGG Vorbis file support.</li>
+  <ul dir="auto">
 
-  <li>Update Opus and mpg123 libraries to their latest version.</li>
+  <li>actions: compile on pull request and merge by <a class="user-mention notranslate"
+  data-hovercard-type="user" data-hovercard-url="/users/deltabeard/hovercard" data-octo-click="hovercard-link-click"
+  data-octo-dimensions="link_type:self" href="https://github.com/deltabeard">@deltabeard</a>
+  in <a class="issue-link js-issue-link" data-error-text="Failed to load title" data-id="3499288952"
+  data-permission-text="Title is private" data-url="https://github.com/deltabeard/ctrmus/issues/81"
+  data-hovercard-type="pull_request" data-hovercard-url="/deltabeard/ctrmus/pull/81/hovercard"
+  href="https://github.com/deltabeard/ctrmus/pull/81">#81</a></li>
 
-  <li>Further improvements to overall system stability and other minor adjustments
-  have been made to enhance the user experience.</li>
+  <li>Check whether upcoming autoplay entry is a file by <a class="user-mention notranslate"
+  data-hovercard-type="user" data-hovercard-url="/users/narayanx/hovercard" data-octo-click="hovercard-link-click"
+  data-octo-dimensions="link_type:self" href="https://github.com/narayanx">@narayanx</a>
+  in <a class="issue-link js-issue-link" data-error-text="Failed to load title" data-id="3501661863"
+  data-permission-text="Title is private" data-url="https://github.com/deltabeard/ctrmus/issues/83"
+  data-hovercard-type="pull_request" data-hovercard-url="/deltabeard/ctrmus/pull/83/hovercard"
+  href="https://github.com/deltabeard/ctrmus/pull/83">#83</a></li>
 
   </ul>
 
-  <p dir="auto"><a target="_blank" rel="noopener noreferrer nofollow" href="https://camo.githubusercontent.com/7b6175f90473c54ac11bd234f6141d02154d8ecb3b4d188d485ee64238715b8e/68747470733a2f2f7a78696e672e6f72672f772f63686172743f6368743d7172266368733d323330783233302663686c643d4c2663686f653d5554462d382663686c3d68747470732533412532462532466769746875622e636f6d25324664656c746162656172642532466374726d757325324672656c6561736573253246646f776e6c6f6164253246302e342e31322532466374726d75732e636961"><img
-  src="https://camo.githubusercontent.com/7b6175f90473c54ac11bd234f6141d02154d8ecb3b4d188d485ee64238715b8e/68747470733a2f2f7a78696e672e6f72672f772f63686172743f6368743d7172266368733d323330783233302663686c643d4c2663686f653d5554462d382663686c3d68747470732533412532462532466769746875622e636f6d25324664656c746162656172642532466374726d757325324672656c6561736573253246646f776e6c6f6164253246302e342e31322532466374726d75732e636961"
-  alt="QR" data-canonical-src="https://zxing.org/w/chart?cht=qr&amp;chs=230x230&amp;chld=L&amp;choe=UTF-8&amp;chl=https%3A%2F%2Fgithub.com%2Fdeltabeard%2Fctrmus%2Freleases%2Fdownload%2F0.4.12%2Fctrmus.cia"
-  style="max-width: 100%;"></a></p>'
-updated: '2017-07-08T18:35:46Z'
-version: 0.4.12
-version_title: '0.4.12: Vorbis Support'
+  <p dir="auto"><strong>Full Changelog</strong>: <a class="commit-link" href="https://github.com/deltabeard/ctrmus/compare/v0.5.2...v0.5.3"><tt>v0.5.2...v0.5.3</tt></a></p>'
+updated: '2025-10-18T09:13:25Z'
+version: v0.5.3
+version_title: 0.5.3
 ---

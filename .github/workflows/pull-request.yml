@@ -1,0 +1,47 @@
+name: Pull request check
+on:
+  pull_request:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        fetch-depth: 2
+
+    - name: Prepare environment
+      run: |
+        pip3 install --break-system-packages -r source/requirements.txt
+
+    - name: Run generate.py
+      env:
+        TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        UPDATED_APPS=$(git diff --name-only HEAD~1 | grep source/apps || true)
+
+        echo $UPDATED_APPS
+        if [ -n "$UPDATED_APPS" ]; then
+          echo '<details><summary>Test Results</summary>' > results.txt
+          echo '' >> results.txt
+          echo '```json' >> results.txt
+          source/generate.py app-test $UPDATED_APPS >> results.txt
+          if [ $? -eq 0 ]; then
+            echo yes
+            echo '```' >> results.txt
+            cat results.txt | grep -o 'https://.*\.png' >> results.txt
+            echo '</details>' >> results.txt
+          else
+            echo no
+            rm results.txt
+          fi
+        fi
+
+        cat results.txt
+
+    - name: Comment results
+      if: ${{ hashFiles('results.txt') != '' }}
+      uses: thollander/actions-comment-pull-request@v3
+      with:
+        file-path: results.txt

@@ -9,6 +9,12 @@
 	"description": "A Nintendo Zone Revival for the 3DS.",
 	"long_description": "SatellaZone is a 3DS Nintendo Zone Revival patch that allows you to access archives from different stores and restaurants such as Best Buy, AT&T, McDonalds, and more!\n You can access videos using the LocalSatellaZone version.\n You can also be able to access Nintendo Zone without having to launch FBI by downloading the UsaPatch (which is for USA consoles only).\n You can find more informations and tutorials at https://github.com/MegaPika/SatellaZone#readme",
 	"website": "https://satellazone.neocities.org/",
+	"script_message": "Ensure \"Enable game patching\" is enabled\nin Luma3DS settings for this to work.",
+	"installed_files": [
+		"/luma/titles/0004001000022B00/",
+		"/luma/titles/0004001000021B00/",
+		"/luma/titles/0004001000020B00/"
+	],
 	"scripts": {
 		"EUR": [
 			{
@@ -30,10 +36,6 @@
 			{
 				"type": "deleteFile",
 				"file": "/SatellaZone.zip"
-			},
-			{
-				"type": "promptMessage",
-				"message": "Ensure \"Enable game patching\" is enabled\nin Luma3DS settings for this to work."
 			}
 		],
 		"USA": [
@@ -72,10 +74,6 @@
 			{
 				"type": "deleteFile",
 				"file": "/UsaPatch.zip"
-			},
-			{
-				"type": "promptMessage",
-				"message": "Ensure \"Enable game patching\" is enabled\nin Luma3DS settings for this to work."
 			}
 		],
 		"JPN": [
@@ -98,10 +96,6 @@
 			{
 				"type": "deleteFile",
 				"file": "/SatellaZone.zip"
-			},
-			{
-				"type": "promptMessage",
-				"message": "Ensure \"Enable game patching\" is enabled\nin Luma3DS settings for this to work."
 			}
 		],
 		"[local] EUR": [
@@ -124,10 +118,6 @@
 			{
 				"type": "deleteFile",
 				"file": "/LocalSatellaZone.zip"
-			},
-			{
-				"type": "promptMessage",
-				"message": "Ensure \"Enable game patching\" is enabled\nin Luma3DS settings for this to work."
 			}
 		],
 		"[local] USA": [
@@ -166,10 +156,6 @@
 			{
 				"type": "deleteFile",
 				"file": "/UsaPatch.zip"
-			},
-			{
-				"type": "promptMessage",
-				"message": "Ensure \"Enable game patching\" is enabled\nin Luma3DS settings for this to work."
 			}
 		],
 		"[local] JPN": [
@@ -192,10 +178,6 @@
 			{
 				"type": "deleteFile",
 				"file": "/LocalSatellaZone.zip"
-			},
-			{
-				"type": "promptMessage",
-				"message": "Ensure \"Enable game patching\" is enabled\nin Luma3DS settings for this to work."
 			}
 		],
 		"[local HQ] EUR": [
@@ -218,10 +200,6 @@
 			{
 				"type": "deleteFile",
 				"file": "/LocalSatellaZoneHQ.zip"
-			},
-			{
-				"type": "promptMessage",
-				"message": "Ensure \"Enable game patching\" is enabled\nin Luma3DS settings for this to work."
 			}
 		],
 		"[local HQ] USA": [
@@ -260,10 +238,6 @@
 			{
 				"type": "deleteFile",
 				"file": "/UsaPatch.zip"
-			},
-			{
-				"type": "promptMessage",
-				"message": "Ensure \"Enable game patching\" is enabled\nin Luma3DS settings for this to work."
 			}
 		],
 		"[local HQ] JPN": [
@@ -286,10 +260,6 @@
 			{
 				"type": "deleteFile",
 				"file": "/LocalSatellaZoneHQ.zip"
-			},
-			{
-				"type": "promptMessage",
-				"message": "Ensure \"Enable game patching\" is enabled\nin Luma3DS settings for this to work."
 			}
 		]
 	}

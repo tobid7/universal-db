@@ -6,17 +6,17 @@ categories:
 color: '#7b8288'
 color_bg: '#737a80'
 created: '2025-03-18T06:48:34Z'
-description: 3DS Virtual Controller for ViGEm
+description: Simulate Xbox controller inputs using your 3DS. (Support Windows 10/11)
 download_page: https://github.com/lxfly2000/VConV/releases
 downloads:
   vconv.cia:
-    size: 1676224
+    size: 1708992
     size_str: 1 MiB
-    url: https://github.com/lxfly2000/VConV/releases/download/Build-6/vconv.cia
+    url: https://github.com/lxfly2000/VConV/releases/download/Build-10/vconv.cia
   vconv3ds.3dsx:
-    size: 1235380
+    size: 1268400
     size_str: 1 MiB
-    url: https://github.com/lxfly2000/VConV/releases/download/Build-6/vconv3ds.3dsx
+    url: https://github.com/lxfly2000/VConV/releases/download/Build-10/vconv3ds.3dsx
 github: lxfly2000/VConV
 icon: https://raw.githubusercontent.com/lxfly2000/VConV/master/vconv3ds/icon.png
 image: https://raw.githubusercontent.com/lxfly2000/VConV/master/vconv3ds/buildcia/banner.png
@@ -28,15 +28,15 @@ screenshots:
 - description: Preview
   url: https://db.universal-team.net/assets/images/screenshots/vconv/preview.png
 source: https://github.com/lxfly2000/VConV
-stars: 4
+stars: 10
 systems:
 - 3DS
 title: VConV
 unique_ids:
 - '0x11A87'
-update_notes: '<p dir="auto">新增“关闭屏幕背光”选项<br>
+update_notes: '<p dir="auto">添加附加按钮<br>
 
-  修复Home菜单Bug</p>
+  不发送keycode为0的命令</p>
 
   <div class="markdown-alert markdown-alert-warning" dir="auto"><p class="markdown-alert-title"
   dir="auto"><svg class="octicon octicon-alert mr-2" viewBox="0 0 16 16" version="1.1"
@@ -106,17 +106,17 @@ update_notes: '<p dir="auto">新增“关闭屏幕背光”选项<br>
 
   <ul dir="auto">
 
-  <li>vconv.cia: <code class="notranslate">1A75AEBB7F94FD5584FB2450868CD15171DC955B21FD330A84BB4867A5E43678</code></li>
+  <li>vconv.cia: <code class="notranslate">69BFAA5D0A613D17F8AE3162E2E71D529EF519B7191BF974A159099850651197</code></li>
 
-  <li>vconv3ds.3dsx: <code class="notranslate">B27B66B6D87E62C7E6D3AFA8E0EB1D849BBDDBB26CE2EEA74E1E256A8D302025</code></li>
+  <li>vconv3ds.3dsx: <code class="notranslate">9A569699AB6C47047627E4D076814BB1525760450BE1572388F22DE8A4C54288</code></li>
 
   <li>vconvwin.exe: <code class="notranslate">30D8964A8A6F0F3ED2CA3D3E864865C085F67FF8865D2C9EB6E96B0D00629B98</code></li>
 
   <li>vconvwin64.exe: <code class="notranslate">D844A8C6092B7C30F7AF36C0E77490B390E6E70E0F9844D52F6BABC27AA24931</code></li>
 
   </ul>'
-updated: '2025-04-11T06:27:31Z'
-version: Build-6
+updated: '2025-07-13T01:44:31Z'
+version: Build-10
 website: https://www.bilibili.com/video/BV18qoXYmER1
 ---
 3DS Virtual Controller for ViGEm
